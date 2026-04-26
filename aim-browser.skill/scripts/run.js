@@ -253,6 +253,17 @@ async function main() {
         }
         console.log(`[Success] Selector ${css} found.`);
       }
+      else if (arg === '--interactive' || arg === '--repl') {
+        await ensureConnection();
+        console.log(`[Success] Entering interactive REPL mode. The 'browser' object is available.`);
+        const replServer = repl.start({ prompt: 'aim-browser> ' });
+        replServer.context.browser = browser;
+        
+        await new Promise(resolve => {
+          replServer.on('exit', resolve);
+        });
+        console.log(`[Success] Exiting REPL mode.`);
+      }
       else if (arg === '--wait') {
         const ms = parseInt(args[++i], 10);
         console.log(`[Action] Waiting for ${ms}ms...`);

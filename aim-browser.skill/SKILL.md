@@ -60,6 +60,7 @@ The `run.js` script executes arguments sequentially from left to right, maintain
 - `--eval "<js>"`: Executes arbitrary JavaScript within the page context and prints the result.
 - `--block-media`: Intercepts and blocks requests for images, media, fonts, and stylesheets to speed up loading and save bandwidth.
 - `--spy <url-pattern>`: Listens for network responses matching the regex pattern and prints their raw JSON/text payload.
+- `--interactive` or `--repl`: Starts a Node.js REPL session where the `browser` engine is available globally, allowing you to type raw JS CDP commands interactively.
 
 ## Examples
 
