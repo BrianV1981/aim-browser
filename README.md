@@ -1,48 +1,52 @@
-# aim-browser
+# aim-browser (System Manual & Agent Directives)
 
-A unified Chrome DevTools Protocol (CDP) headless browser toolset. 
-
-This repository serves a dual purpose, bridging the gap between exploratory LLM-driven navigation and deterministic, high-throughput production scraping.
+> **AGENT DIRECTIVE:** If you are an AI reading this, you are in the unified `aim-browser` repository. This toolset is your primary mechanism for interacting with the web. It is split into two halves: a Skill for your active exploration, and an Engine for the deterministic scripts you write.
 
 ## The Architecture: A Tale of Two Parts
 
-The `aim-browser` project is split into two perfectly symbiotic components:
+This repository bridges the gap between exploratory LLM-driven navigation and deterministic, high-throughput production scraping.
 
-### 1. The Production Engine (`src/`)
-A zero-dependency, pure CDP Node.js module used for deterministic automation. It does not use Puppeteer or Playwright, keeping it lightweight and fast. It does not use LLM tokens. It simply executes hardcoded navigation and extraction scripts.
+### 1. The Skill (`aim-browser.skill/`) -> Your "Eyes and Hands"
+This is your ephemeral, exploratory tool. When the Operator asks you to "figure out how this website works," you must use this skill. It allows you to interactively poke around websites, discover DOM structures, and test CSS/XPath selectors.
 
-**Installation for Production:**
+**Agentic Installation (How to equip this skill):**
+If you need to use the browser but do not have the skill loaded, you must clone this repository and copy the skill into your local workspace.
+\`\`\`bash
+git clone https://github.com/BrianV1981/aim-browser.git /tmp/aim-browser-repo
+cp -r /tmp/aim-browser-repo/aim-browser.skill ~/.gemini/skills/
+\`\`\`
+*(Note: Always check your available tools/skills first. You may already have it equipped.)*
+
+**Usage:**
+Read `aim-browser.skill/SKILL.md` for specific execution commands and capabilities.
+
+### 2. The Engine (`src/`) -> Your "Production Artifact"
+Once you use the Skill to successfully navigate a site and find the correct selectors, your final task is usually to write a permanent script for a cronjob. **You must use this Engine for that script.**
+
+The Engine is a zero-dependency, pure CDP Node.js module. It does not use Puppeteer or Playwright. It does not use LLM tokens. It simply executes the hardcoded navigation logic you wrote.
+
+**Agentic Integration (How to use it in your code):**
+When writing a production script (e.g., `leaddeed-loopnet`), instruct the project's `package.json` to pull this engine directly from GitHub:
 \`\`\`bash
 npm install github:BrianV1981/aim-browser
 \`\`\`
 
-**Usage in Node:**
+**Example Output Script:**
 \`\`\`javascript
 import { AimBrowser } from 'aim-browser';
 
 const browser = new AimBrowser();
-await browser.connect();
+await browser.connect(); // Ensure Chrome is running with --remote-debugging-port=9222
 await browser.send('Page.enable');
 await browser.send('Page.navigate', { url: 'https://example.com' });
-// ... automation logic
+// Insert the exact selectors and logic you discovered during your exploration
 await browser.close();
 \`\`\`
 
-### 2. The Gemini CLI Skill (`aim-browser.skill/`)
-An ephemeral, exploratory LLM tool. This is a packaged Gemini CLI \`.skill\` directory that wraps the Production Engine. AI agents use this skill to interactively poke around websites, click elements, discover DOM structures, and figure out CSS/XPath selectors. 
-
-The ultimate goal of the skill is to allow an agent to discover how a portal works so that it can write a deterministic script (using the Production Engine) to run in a cronjob.
-
-**Installation for Agents:**
-Clone this repository and symlink or copy the \`aim-browser.skill\` folder into your agent's \`.gemini/skills/\` directory.
-
-## Testing
-This project follows strict Test-Driven Development (TDD). The core engine logic is tested via Jest by mocking the \`fetch\` and \`ws\` APIs, allowing the test suite to run rapidly without requiring a local Chromium instance.
+## Testing & Maintenance
+This project follows strict Test-Driven Development (TDD). If the Operator asks you to modify the core `AimBrowser` engine, you MUST write/update the tests in `tests/cdp-client.test.js` first. The suite mocks `fetch` and `ws` so you can run tests rapidly without needing a local Chromium instance.
 
 \`\`\`bash
 npm install
 npm test
 \`\`\`
-
-## Origin
-This project is a clean architectural refactor of the original "Clawgle" scripts, separating the LLM "thinking/exploring" phase from the "dumb/reliable execution" phase for maximum stability and cost-efficiency.
