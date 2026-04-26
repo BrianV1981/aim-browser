@@ -50,3 +50,11 @@ This project follows strict Test-Driven Development (TDD). If the Operator asks 
 npm install
 npm test
 \`\`\`
+
+## Overarching Project
+This tool is a sub-component of the overarching **A.I.M. (Actual Intelligent Memory)** ecosystem. 
+For more information on the core agent framework, GitOps guardrails, and DataJack cartridges, visit the main repository:
+[BrianV1981/aim](https://github.com/BrianV1981/aim)
+
+## Support
+☕ **Support the project:** [Buy Me a Coffee](https://buymeacoffee.com/brianv1981)
