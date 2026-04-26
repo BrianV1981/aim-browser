@@ -10,12 +10,16 @@ This repository bridges the gap between exploratory LLM-driven navigation and de
 This is your ephemeral, exploratory tool. When the Operator asks you to "figure out how this website works," you must use this skill. It allows you to interactively poke around websites, discover DOM structures, and test CSS/XPath selectors.
 
 **Agentic Installation (How to equip this skill):**
-If you need to use the browser but do not have the skill loaded, you must clone this repository and copy the skill into your local workspace.
+If you need to use the browser but do not have the skill loaded, you must clone this repository and link it using your native `gemini skills` command. Do not use `cp` to copy the files manually.
+
 \`\`\`bash
+# 1. Clone the repository to a temporary workspace
 git clone https://github.com/BrianV1981/aim-browser.git /tmp/aim-browser-repo
-cp -r /tmp/aim-browser-repo/aim-browser.skill ~/.gemini/skills/
+
+# 2. Use the native CLI command to link the skill to your agent profile
+gemini skills link /tmp/aim-browser-repo/aim-browser.skill
 \`\`\`
-*(Note: Always check your available tools/skills first. You may already have it equipped.)*
+*(Note: The SKILL.md file contains required YAML frontmatter (name/description). Do not remove it, or the CLI will fail to parse the skill).*
 
 **Usage:**
 Read `aim-browser.skill/SKILL.md` for specific execution commands and capabilities.
