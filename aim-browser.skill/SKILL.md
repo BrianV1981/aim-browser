@@ -58,6 +58,8 @@ The `run.js` script executes arguments sequentially from left to right, maintain
 - `--upload <css> <file>`: Injects the given local file into the file input matching the CSS selector.
 - `--resize <w> <h>`, `--maximize`, `--minimize`: Manipulates the browser window bounds.
 - `--eval "<js>"`: Executes arbitrary JavaScript within the page context and prints the result.
+- `--block-media`: Intercepts and blocks requests for images, media, fonts, and stylesheets to speed up loading and save bandwidth.
+- `--spy <url-pattern>`: Listens for network responses matching the regex pattern and prints their raw JSON/text payload.
 
 ## Examples
 

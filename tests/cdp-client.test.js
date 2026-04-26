@@ -114,4 +114,59 @@ describe('AimBrowser Core Engine', () => {
     const data = await browser.screenshot();
     expect(data).toBe('base64data');
   });
+
+  it('should configure media blocking', async () => {
+    const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
+    await browser.connect();
+
+    mockWsInstance.send.mockImplementation((payload) => {
+      const { id, method } = JSON.parse(payload);
+      setTimeout(() => messageHandler(JSON.stringify({ id, result: {} })), 1);
+    });
+
+    await browser.blockMedia();
+    
+    // Simulate an incoming fetch request that should be paused and failed
+    setTimeout(() => {
+      messageHandler(JSON.stringify({
+        method: 'Fetch.requestPaused',
+        params: { requestId: 'req1' }
+      }));
+    }, 10);
+
+    await new Promise(r => setTimeout(r, 20));
+
+    const calls = mockWsInstance.send.mock.calls.map(c => JSON.parse(c[0]).method);
+    expect(calls).toContain('Fetch.enable');
+    expect(calls).toContain('Fetch.failRequest');
+  });
+
+  it('should set up network spying', async () => {
+    const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
+    await browser.connect();
+
+    mockWsInstance.send.mockImplementation((payload) => {
+      const { id, method } = JSON.parse(payload);
+      if (method === 'Network.getResponseBody') {
+        setTimeout(() => messageHandler(JSON.stringify({ id, result: { body: '{"spy":"data"}' } })), 1);
+      } else {
+        setTimeout(() => messageHandler(JSON.stringify({ id, result: {} })), 1);
+      }
+    });
+
+    const spyCb = jest.fn();
+    await browser.spyNetwork('.*api.*', spyCb);
+
+    // Simulate an incoming response event
+    setTimeout(() => {
+      messageHandler(JSON.stringify({
+        method: 'Network.responseReceived',
+        params: { requestId: 'req2', response: { url: 'https://example.com/api/data' } }
+      }));
+    }, 10);
+
+    await new Promise(r => setTimeout(r, 20));
+
+    expect(spyCb).toHaveBeenCalledWith('https://example.com/api/data', '{"spy":"data"}');
+  });
 });

@@ -382,4 +382,36 @@ export class AimBrowser {
     if (windowId === undefined) throw new Error('Could not get windowId');
     await this.send('Browser.setWindowBounds', { windowId, bounds: options });
   }
+
+  async blockMedia() {
+    await this.send('Fetch.enable', {
+      patterns: [
+        { resourceType: 'Image', requestStage: 'Request' },
+        { resourceType: 'Media', requestStage: 'Request' },
+        { resourceType: 'Font', requestStage: 'Request' },
+        { resourceType: 'Stylesheet', requestStage: 'Request' }
+      ]
+    });
+    this.on('Fetch.requestPaused', async (params) => {
+      await this.send('Fetch.failRequest', {
+        requestId: params.requestId,
+        errorReason: 'BlockedByClient'
+      }).catch(() => {});
+    });
+  }
+
+  async spyNetwork(pattern, callback) {
+    await this.send('Network.enable');
+    const regex = new RegExp(pattern);
+    this.on('Network.responseReceived', async (params) => {
+      if (regex.test(params.response.url)) {
+        try {
+          const res = await this.send('Network.getResponseBody', { requestId: params.requestId });
+          callback(params.response.url, res.body);
+        } catch (e) {
+          // ignore
+        }
+      }
+    });
+  }
 }

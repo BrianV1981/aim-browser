@@ -212,6 +212,19 @@ async function main() {
         fs.writeFileSync(outPath, buf);
         console.log(`[Success] Saved image to ${outPath}`);
       }
+      else if (arg === '--block-media') {
+        await ensureConnection();
+        await browser.blockMedia();
+        console.log(`[Success] Media blocking enabled.`);
+      }
+      else if (arg === '--spy') {
+        const pattern = args[++i];
+        await ensureConnection();
+        await browser.spyNetwork(pattern, (url, body) => {
+          console.log(`\n--- SPY: ${url} ---\n${body}\n--- END SPY ---\n`);
+        });
+        console.log(`[Success] Spying on network requests matching: ${pattern}`);
+      }
       else if (arg === '--wait-ready') {
         await ensureConnection();
         await browser.waitReady();
