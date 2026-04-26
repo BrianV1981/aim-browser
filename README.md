@@ -2,6 +2,16 @@
 
 > **AGENT DIRECTIVE:** If you are an AI reading this, you are in the unified `aim-browser` repository. This toolset is your primary mechanism for interacting with the web. It is split into two halves: a Skill for your active exploration, and an Engine for the deterministic scripts you write.
 
+## The Origin & Capabilities
+This project is a clean architectural refactor of the legacy "Clawgle" project. It brings **100% feature parity** with Clawgle, but splits the LLM "thinking/exploring" phase from the "dumb/reliable execution" phase for maximum stability and cost-efficiency.
+
+**Features include:**
+- **Tab & Session Management:** Multi-tab support with persistent state.
+- **Advanced Input:** Native CDP typing, keyboard events (keypress, keycombo, keytype), and React-aware textbox clearing.
+- **DOM & Interaction:** Native mouse tapping (`x, y`), element indexing, and selector waiting.
+- **Extraction:** Screenshots (including fullpage metric overrides), Image extraction to Canvas/Base64, and full Accessibility Tree (`AXTree`) extraction for SPAs.
+- **Environment Controls:** Window resizing, maximizing, and automated file downloads/uploads.
+
 ## The Architecture: A Tale of Two Parts
 
 This repository bridges the gap between exploratory LLM-driven navigation and deterministic, high-throughput production scraping.
@@ -22,7 +32,7 @@ gemini skills link /tmp/aim-browser-repo/aim-browser.skill
 *(Note: The SKILL.md file contains required YAML frontmatter (name/description). Do not remove it, or the CLI will fail to parse the skill).*
 
 **Usage:**
-Read `aim-browser.skill/SKILL.md` for specific execution commands and capabilities.
+Read `aim-browser.skill/SKILL.md` for specific execution commands, available flags (like `--elements`, `--type`, `--content-ax`), and workflows.
 
 ### 2. The Engine (`src/`) -> Your "Production Artifact"
 Once you use the Skill to successfully navigate a site and find the correct selectors, your final task is usually to write a permanent script for a cronjob. **You must use this Engine for that script.**
@@ -42,8 +52,20 @@ import { AimBrowser } from 'aim-browser';
 const browser = new AimBrowser();
 await browser.connect(); // Ensure Chrome is running with --remote-debugging-port=9222
 await browser.send('Page.enable');
-await browser.send('Page.navigate', { url: 'https://example.com' });
-// Insert the exact selectors and logic you discovered during your exploration
+
+// Open a new tab
+const tab = await browser.openTab('https://example.com');
+await browser.connect(tab.id);
+
+// Wait for page to settle
+await browser.waitReady();
+
+// Extract the accessibility tree
+const axTree = await browser.getAccessibilityTree();
+console.log(axTree);
+
+// Close the tab and disconnect
+await browser.closeTab(tab.id);
 await browser.close();
 \`\`\`
 
