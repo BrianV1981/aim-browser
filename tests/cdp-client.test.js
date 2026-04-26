@@ -10,10 +10,22 @@ describe('AimBrowser Core Engine', () => {
 
   beforeEach(() => {
     mockWebSocketUrl = 'ws://127.0.0.1:9222/devtools/browser/1234';
-    mockFetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ webSocketDebuggerUrl: mockWebSocketUrl })
+    mockFetch = jest.fn().mockImplementation((url) => {
+      if (url.includes('/json/version')) {
+        return Promise.resolve({ ok: true, json: async () => ({ webSocketDebuggerUrl: mockWebSocketUrl }) });
+      }
+      if (url.includes('/json/list')) {
+        return Promise.resolve({ ok: true, json: async () => ([{ type: 'page', id: 'tab1', webSocketDebuggerUrl: mockWebSocketUrl }]) });
+      }
+      if (url.includes('/json/new')) {
+        return Promise.resolve({ ok: true, json: async () => ({ id: 'newTab' }) });
+      }
+      if (url.includes('/json/close')) {
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      }
+      return Promise.resolve({ ok: false, status: 404 });
     });
+    
     mockWsInstance = {
       on: jest.fn((event, cb) => {
         if (event === 'open') setTimeout(cb, 5);
@@ -36,6 +48,16 @@ describe('AimBrowser Core Engine', () => {
     const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
     await browser.connect();
     expect(browser.connected).toBe(true);
+  });
+
+  it('should get targets and open tabs', async () => {
+    const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
+    const targets = await browser.getTargets();
+    expect(targets.length).toBe(1);
+    expect(targets[0].id).toBe('tab1');
+    
+    const newTab = await browser.openTab('https://example.com');
+    expect(newTab.id).toBe('newTab');
   });
 
   it('should evaluate javascript on the page', async () => {
@@ -69,11 +91,11 @@ describe('AimBrowser Core Engine', () => {
 
     await browser.click('#btn');
     
-    expect(mockWsInstance.send).toHaveBeenCalledTimes(6);
+    expect(mockWsInstance.send).toHaveBeenCalledTimes(7);
     const calls = mockWsInstance.send.mock.calls.map(c => JSON.parse(c[0]).method);
     expect(calls).toEqual([
       'DOM.enable', 'DOM.getDocument', 'DOM.querySelector', 
-      'DOM.getBoxModel', 'Input.dispatchMouseEvent', 'Input.dispatchMouseEvent'
+      'DOM.getBoxModel', 'Input.dispatchMouseEvent', 'Input.dispatchMouseEvent', 'Input.dispatchMouseEvent'
     ]);
   });
 
@@ -82,8 +104,11 @@ describe('AimBrowser Core Engine', () => {
     await browser.connect();
 
     mockWsInstance.send.mockImplementation((payload) => {
-      const { id } = JSON.parse(payload);
-      setTimeout(() => messageHandler(JSON.stringify({ id, result: { data: 'base64data' } })), 1);
+      const { id, method } = JSON.parse(payload);
+      let result = {};
+      if (method === 'Page.captureScreenshot') result = { data: 'base64data' };
+      if (method === 'Runtime.evaluate') result = { result: { value: 'complete' } };
+      setTimeout(() => messageHandler(JSON.stringify({ id, result })), 1);
     });
 
     const data = await browser.screenshot();
