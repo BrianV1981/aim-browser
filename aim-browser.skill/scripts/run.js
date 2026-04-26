@@ -73,6 +73,18 @@ async function main() {
         console.log(`[Success] Using tab [${idx}]`);
         if (connected) { await browser.close(); connected = false; }
       }
+      else if (arg === '--frame') {
+        const frameId = args[++i];
+        await ensureConnection();
+        await browser.useFrame(frameId);
+        console.log(`[Success] Now using frame: ${frameId}`);
+      }
+      else if (arg === '--scroll-to-bottom') {
+        await ensureConnection();
+        console.log(`[Action] Auto-scrolling to bottom...`);
+        await browser.autoScroll();
+        console.log(`[Success] Reached bottom of page.`);
+      }
       else if (arg === '--open') {
         const url = args[++i];
         console.log(`[Action] Opening ${url}...`);

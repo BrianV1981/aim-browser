@@ -15,6 +15,9 @@ export class AimBrowser {
     this._messageId = 0;
     this._pendingCommands = new Map();
     this._eventListeners = new Map();
+    
+    this._executionContexts = new Map();
+    this._activeContextId = null;
   }
 
   async _httpJson(path, init) {
@@ -62,8 +65,9 @@ export class AimBrowser {
     this.ws.on('message', (data) => this._handleMessage(data));
 
     return new Promise((resolve, reject) => {
-      this.ws.on('open', () => {
+      this.ws.on('open', async () => {
         this.connected = true;
+        await this.send('Runtime.enable').catch(() => {});
         resolve();
       });
       this.ws.on('error', (err) => reject(err));
@@ -73,6 +77,19 @@ export class AimBrowser {
   _handleMessage(data) {
     const message = JSON.parse(data.toString());
     
+    if (message.method === 'Runtime.executionContextCreated') {
+      const ctx = message.params.context;
+      if (ctx.auxData && ctx.auxData.frameId) {
+        this._executionContexts.set(ctx.auxData.frameId, ctx.id);
+      }
+    } else if (message.method === 'Runtime.executionContextDestroyed') {
+      for (const [frameId, ctxId] of this._executionContexts.entries()) {
+        if (ctxId === message.params.executionContextId) this._executionContexts.delete(frameId);
+      }
+    } else if (message.method === 'Runtime.executionContextsCleared') {
+      this._executionContexts.clear();
+    }
+
     if (message.id && this._pendingCommands.has(message.id)) {
       const { resolve, reject } = this._pendingCommands.get(message.id);
       this._pendingCommands.delete(message.id);
@@ -125,15 +142,49 @@ export class AimBrowser {
     }
   }
 
-  async evaluate(expression) {
+  async useFrame(identifier) {
+    if (identifier === 'main' || identifier === null || identifier === undefined) {
+      this._activeContextId = null;
+      return;
+    }
+    
+    await this.send('Page.enable');
+    const { frameTree } = await this.send('Page.getFrameTree');
+    const frames = [];
+    const traverse = (node) => {
+      frames.push(node.frame);
+      if (node.childFrames) node.childFrames.forEach(traverse);
+    };
+    traverse(frameTree);
+    
+    let frame;
+    if (/^\d+$/.test(identifier)) {
+      frame = frames[parseInt(identifier, 10)];
+    } else {
+      frame = frames.find(f => f.id === identifier || (f.name && f.name === identifier) || (f.url || '').includes(identifier));
+    }
+    
+    if (!frame) throw new Error(`Frame ${identifier} not found`);
+    
+    const ctxId = this._executionContexts.get(frame.id);
+    if (!ctxId) {
+      throw new Error(`Execution context not ready for frame ${identifier}. Try waiting or evaluating logic first.`);
+    }
+    this._activeContextId = ctxId;
+  }
+
+  async evaluate(expression, returnByValue = true) {
     await this.send('Runtime.enable');
-    const res = await this.send('Runtime.evaluate', {
+    const params = {
       expression,
-      returnByValue: true,
+      returnByValue,
       awaitPromise: true
-    });
+    };
+    if (this._activeContextId) params.contextId = this._activeContextId;
+
+    const res = await this.send('Runtime.evaluate', params);
     if (res.exceptionDetails) throw new Error(`Evaluation failed: ${res.exceptionDetails.exception.description}`);
-    return res.result?.value;
+    return returnByValue ? res.result?.value : res.result;
   }
 
   async waitReady(timeoutMs = 30000) {
@@ -146,22 +197,29 @@ export class AimBrowser {
     throw new Error(`Timeout waiting for document.readyState=complete (${timeoutMs}ms)`);
   }
 
-  async querySelector(selector) {
+  async _getElementCenter(expression) {
     await this.send('DOM.enable');
-    const doc = await this.send('DOM.getDocument', { depth: 1 });
-    const node = await this.send('DOM.querySelector', { nodeId: doc.root.nodeId, selector });
-    return node.nodeId !== 0 ? node.nodeId : null;
+    const obj = await this.evaluate(expression, false);
+    if (!obj || !obj.objectId) throw new Error('Could not find element object');
+    
+    const nodeRes = await this.send('DOM.requestNode', { objectId: obj.objectId }).catch(() => null);
+    if (!nodeRes) throw new Error('Could not request node for element');
+
+    const modelRes = await this.send('DOM.getBoxModel', { nodeId: nodeRes.nodeId }).catch(() => null);
+    if (!modelRes) throw new Error('Could not get BoxModel for element');
+    
+    const c = modelRes.model.content;
+    const x = (c[0] + c[2]) / 2;
+    const y = (c[1] + c[5]) / 2;
+    
+    await this.send('Runtime.releaseObject', { objectId: obj.objectId }).catch(() => {});
+    return { x, y };
   }
 
   async click(selector) {
-    const nodeId = await this.querySelector(selector);
-    if (!nodeId) throw new Error(`Node not found for selector: ${selector}`);
-    const { model } = await this.send('DOM.getBoxModel', { nodeId });
-    const w = model.content[2] - model.content[0];
-    const h = model.content[5] - model.content[1];
-    const x = model.content[0] + w / 2;
-    const y = model.content[1] + h / 2;
-    await this.tap(x, y);
+    const expr = `document.querySelector(${JSON.stringify(selector)})`;
+    const center = await this._getElementCenter(expr);
+    await this.tap(center.x, center.y);
   }
 
   async tap(x, y) {
@@ -172,7 +230,7 @@ export class AimBrowser {
 
   async tapElementIndex(index) {
     await this.send('Page.bringToFront').catch(() => {});
-    const info = await this.evaluate(`(() => {
+    const center = await this._getElementCenter(`(() => {
       const isVisible = (el) => {
         const r = el.getBoundingClientRect();
         const s = getComputedStyle(el);
@@ -180,19 +238,14 @@ export class AimBrowser {
       };
       const selector = 'a,button,input,select,textarea,[role="button"],[onclick],[tabindex],[role="textbox"],[contenteditable="true"],[contenteditable=""],div[aria-label],div[role="textbox"],div[data-testid^="tweetTextarea_"]';
       const els = Array.from(document.querySelectorAll(selector)).filter(isVisible);
-      const el = els[${index}];
-      if (!el) return null;
-      el.scrollIntoView({ block: 'center', inline: 'center' });
-      const r = el.getBoundingClientRect();
-      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+      return els[${index}];
     })()`);
-    if (!info) throw new Error(`element index ${index} not found`);
-    await this.tap(info.x, info.y);
+    await this.tap(center.x, center.y);
   }
 
   async typeText(index, text) {
     await this.send('Page.bringToFront').catch(() => {});
-    const ok = await this.evaluate(`(() => {
+    const center = await this._getElementCenter(`(() => {
       const isVisible = (el) => {
         const r = el.getBoundingClientRect();
         const s = getComputedStyle(el);
@@ -210,7 +263,7 @@ export class AimBrowser {
       const selector = 'a,button,input,select,textarea,[role="button"],[onclick],[tabindex],[role="textbox"],[contenteditable="true"],[contenteditable=""],div[aria-label],div[role="textbox"],div[data-testid^="tweetTextarea_"]';
       const els = Array.from(document.querySelectorAll(selector)).filter(isVisible);
       const el = els[${index}];
-      if (!el || !isTypeable(el)) return false;
+      if (!el || !isTypeable(el)) throw new Error('Element not typeable');
       el.scrollIntoView({ block: 'center', inline: 'center' });
       el.focus();
       if ('value' in el) {
@@ -221,28 +274,26 @@ export class AimBrowser {
         el.textContent = '';
         el.dispatchEvent(new Event('input', { bubbles: true }));
       }
-      return true;
+      return el;
     })()`);
-    if (!ok) throw new Error(`typeable element index ${index} not found`);
     await this.send('Input.insertText', { text });
   }
 
   async textbox(text) {
     await this.send('Page.bringToFront').catch(() => {});
-    const res = await this.evaluate(`((text) => {
+    const center = await this._getElementCenter(`(() => {
       const el = document.querySelector('div[data-testid="tweetTextarea_0"]') ||
                  document.querySelector('div[data-testid^="tweetTextarea_"]') ||
                  document.querySelector('div[role="textbox"][contenteditable="true"]') ||
                  document.querySelector('div[role="textbox"][contenteditable=""]');
-      if (!el) return { ok: false, reason: 'no textbox found' };
+      if (!el) throw new Error('no textbox found');
       el.scrollIntoView({ block: 'center', inline: 'center' });
       el.focus();
       el.textContent = '';
       document.execCommand('insertText', false, text);
       el.dispatchEvent(new Event('input', { bubbles: true }));
-      return { ok: true, value: (el.innerText || el.textContent || '').trim().slice(0, 120) };
-    })(${JSON.stringify(text)})`);
-    if (!res?.ok) throw new Error(res?.reason || 'textbox failed');
+      return el;
+    })()`);
   }
 
   async keyType(text) {
@@ -408,10 +459,27 @@ export class AimBrowser {
         try {
           const res = await this.send('Network.getResponseBody', { requestId: params.requestId });
           callback(params.response.url, res.body);
-        } catch (e) {
-          // ignore
-        }
+        } catch (e) {}
       }
     });
+  }
+
+  async autoScroll(options = {}) {
+    const { timeoutMs = 30000, delayMs = 600, distance = 1000 } = options;
+    const deadline = Date.now() + timeoutMs;
+    let lastHeight = 0;
+
+    while (Date.now() < deadline) {
+      const currentHeight = await this.evaluate('document.body.scrollHeight');
+      await this.evaluate(`window.scrollBy(0, ${distance})`);
+      await new Promise(r => setTimeout(r, delayMs));
+
+      if (currentHeight === lastHeight) {
+        await new Promise(r => setTimeout(r, delayMs * 2));
+        const newHeight = await this.evaluate('document.body.scrollHeight');
+        if (newHeight === lastHeight) break;
+      }
+      lastHeight = currentHeight;
+    }
   }
 }
