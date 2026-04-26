@@ -1,3 +1,7 @@
+---
+name: aim-browser
+description: Interactive, ephemeral headless browser interface using the Chrome DevTools Protocol (CDP) for exploring web pages, testing CSS/XPath selectors, and interacting with elements.
+---
 # aim-browser Skill
 
 ## Overview
