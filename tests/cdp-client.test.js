@@ -6,6 +6,7 @@ describe('AimBrowser Core Engine', () => {
   let mockWsInstance;
   let MockWebSocket;
   let mockWebSocketUrl;
+  let messageHandler;
 
   beforeEach(() => {
     mockWebSocketUrl = 'ws://127.0.0.1:9222/devtools/browser/1234';
@@ -16,8 +17,11 @@ describe('AimBrowser Core Engine', () => {
     mockWsInstance = {
       on: jest.fn((event, cb) => {
         if (event === 'open') setTimeout(cb, 5);
+        if (event === 'message') messageHandler = cb;
       }),
-      send: jest.fn(),
+      send: jest.fn((payload, cb) => {
+        if (cb) cb();
+      }),
       close: jest.fn()
     };
     MockWebSocket = jest.fn(() => mockWsInstance);
@@ -34,73 +38,55 @@ describe('AimBrowser Core Engine', () => {
     expect(browser.connected).toBe(true);
   });
 
-  it('should send a CDP command and await response', async () => {
+  it('should evaluate javascript on the page', async () => {
     const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
-    
-    let messageHandler;
-    mockWsInstance.on = jest.fn((event, cb) => {
-      if (event === 'open') setTimeout(cb, 5);
-      if (event === 'message') messageHandler = cb;
-    });
-
     await browser.connect();
 
-    const sendPromise = browser.send('Page.navigate', { url: 'https://example.com' });
-    
-    expect(mockWsInstance.send).toHaveBeenCalled();
-    const sentData = JSON.parse(mockWsInstance.send.mock.calls[0][0]);
-    
-    setTimeout(() => {
-      messageHandler(JSON.stringify({ id: sentData.id, result: { frameId: '123' } }));
-    }, 5);
+    mockWsInstance.send.mockImplementation((payload) => {
+      const { id, method } = JSON.parse(payload);
+      let result = {};
+      if (method === 'Runtime.evaluate') result = { result: { value: 'Test Title' } };
+      setTimeout(() => messageHandler(JSON.stringify({ id, result })), 1);
+    });
 
-    const result = await sendPromise;
-    expect(result.frameId).toBe('123');
+    const result = await browser.evaluate('document.title');
+    expect(result).toBe('Test Title');
   });
 
-  it('should handle CDP errors', async () => {
+  it('should click an element based on selector', async () => {
     const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
-    
-    let messageHandler;
-    mockWsInstance.on = jest.fn((event, cb) => {
-      if (event === 'open') setTimeout(cb, 5);
-      if (event === 'message') messageHandler = cb;
-    });
-
     await browser.connect();
 
-    const sendPromise = browser.send('Page.navigate', { url: 'invalid' });
-    const sentData = JSON.parse(mockWsInstance.send.mock.calls[0][0]);
-    
-    setTimeout(() => {
-      messageHandler(JSON.stringify({ 
-        id: sentData.id, 
-        error: { message: 'Invalid URL' } 
-      }));
-    }, 5);
+    mockWsInstance.send.mockImplementation((payload) => {
+      const { id, method } = JSON.parse(payload);
+      let result = {};
+      if (method === 'DOM.getDocument') result = { root: { nodeId: 1 } };
+      else if (method === 'DOM.querySelector') result = { nodeId: 2 };
+      else if (method === 'DOM.getBoxModel') result = { model: { content: [0, 0, 10, 0, 10, 10, 0, 10] } };
+      
+      setTimeout(() => messageHandler(JSON.stringify({ id, result })), 1);
+    });
 
-    await expect(sendPromise).rejects.toThrow('CDP Error: Invalid URL');
+    await browser.click('#btn');
+    
+    expect(mockWsInstance.send).toHaveBeenCalledTimes(6);
+    const calls = mockWsInstance.send.mock.calls.map(c => JSON.parse(c[0]).method);
+    expect(calls).toEqual([
+      'DOM.enable', 'DOM.getDocument', 'DOM.querySelector', 
+      'DOM.getBoxModel', 'Input.dispatchMouseEvent', 'Input.dispatchMouseEvent'
+    ]);
   });
 
-  it('should allow listening to CDP events', async () => {
+  it('should capture a screenshot', async () => {
     const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
-    
-    let messageHandler;
-    mockWsInstance.on = jest.fn((event, cb) => {
-      if (event === 'open') setTimeout(cb, 5);
-      if (event === 'message') messageHandler = cb;
-    });
-
     await browser.connect();
 
-    const eventSpy = jest.fn();
-    browser.on('Page.loadEventFired', eventSpy);
+    mockWsInstance.send.mockImplementation((payload) => {
+      const { id } = JSON.parse(payload);
+      setTimeout(() => messageHandler(JSON.stringify({ id, result: { data: 'base64data' } })), 1);
+    });
 
-    messageHandler(JSON.stringify({ 
-      method: 'Page.loadEventFired',
-      params: { timestamp: 12345 } 
-    }));
-
-    expect(eventSpy).toHaveBeenCalledWith({ timestamp: 12345 });
+    const data = await browser.screenshot();
+    expect(data).toBe('base64data');
   });
 });

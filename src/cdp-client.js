@@ -18,7 +18,6 @@ export class AimBrowser {
 
   async connect() {
     const { port, fetchImpl, WebSocketImpl } = this.options;
-    
     if (!fetchImpl) throw new Error('No fetch implementation available');
 
     const metadataUrl = `http://127.0.0.1:${port}/json/version`;
@@ -32,7 +31,6 @@ export class AimBrowser {
       if (!wsUrl) throw new Error('No webSocketDebuggerUrl found in metadata');
 
       this.ws = new WebSocketImpl(wsUrl);
-      
       this.ws.on('message', (data) => this._handleMessage(data));
 
       return new Promise((resolve, reject) => {
@@ -60,7 +58,6 @@ export class AimBrowser {
         resolve(message.result);
       }
     } else if (message.method) {
-      // Event handling
       if (this._eventListeners.has(message.method)) {
         const listeners = this._eventListeners.get(message.method);
         listeners.forEach(callback => callback(message.params));
@@ -79,15 +76,8 @@ export class AimBrowser {
     if (!this.connected || !this.ws) {
       throw new Error('Not connected. Call connect() first.');
     }
-
-    this._messageId += 1;
-    const id = this._messageId;
-    
-    const payload = JSON.stringify({
-      id,
-      method,
-      params
-    });
+    const id = ++this._messageId;
+    const payload = JSON.stringify({ id, method, params });
 
     return new Promise((resolve, reject) => {
       this._pendingCommands.set(id, { resolve, reject });
@@ -98,6 +88,53 @@ export class AimBrowser {
         }
       });
     });
+  }
+
+  // --- High Level Capabilities ---
+
+  async evaluate(expression) {
+    await this.send('Runtime.enable');
+    const res = await this.send('Runtime.evaluate', {
+      expression,
+      returnByValue: true,
+      awaitPromise: true
+    });
+    if (res.exceptionDetails) {
+      throw new Error(`Evaluation failed: ${res.exceptionDetails.exception.description}`);
+    }
+    return res.result.value;
+  }
+
+  async querySelector(selector) {
+    await this.send('DOM.enable');
+    const doc = await this.send('DOM.getDocument', { depth: 1 });
+    const node = await this.send('DOM.querySelector', {
+      nodeId: doc.root.nodeId,
+      selector
+    });
+    return node.nodeId !== 0 ? node.nodeId : null;
+  }
+
+  async click(selector) {
+    const nodeId = await this.querySelector(selector);
+    if (!nodeId) throw new Error(`Node not found for selector: ${selector}`);
+    
+    const { model } = await this.send('DOM.getBoxModel', { nodeId });
+    // model.content is [x1,y1, x2,y2, x3,y3, x4,y4] representing the quad
+    const width = model.content[2] - model.content[0];
+    const height = model.content[5] - model.content[1];
+    const x = model.content[0] + width / 2;
+    const y = model.content[1] + height / 2;
+    
+    await this.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+    // Small delay between press and release
+    await new Promise(r => setTimeout(r, 50)); 
+    await this.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+  }
+
+  async screenshot(format = 'png') {
+    const res = await this.send('Page.captureScreenshot', { format });
+    return res.data;
   }
 
   async close() {
