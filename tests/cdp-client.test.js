@@ -86,9 +86,7 @@ describe('AimBrowser Core Engine', () => {
     mockWsInstance.send.mockImplementation((payload) => {
       const { id, method, params } = JSON.parse(payload);
       let result = {};
-      if (method === 'Runtime.evaluate') result = { result: { objectId: 'obj1' } };
-      else if (method === 'DOM.requestNode') result = { nodeId: 2 };
-      else if (method === 'DOM.getBoxModel') result = { model: { content: [0, 0, 10, 0, 10, 10, 0, 10] } };
+      if (method === 'Runtime.evaluate') result = { result: { value: { x: 10, y: 10 } } };
       
       setTimeout(() => messageHandler(JSON.stringify({ id, result })), 1);
     });

@@ -198,22 +198,14 @@ export class AimBrowser {
   }
 
   async _getElementCenter(expression) {
-    await this.send('DOM.enable');
-    const obj = await this.evaluate(expression, false);
-    if (!obj || !obj.objectId) throw new Error('Could not find element object');
-    
-    const nodeRes = await this.send('DOM.requestNode', { objectId: obj.objectId }).catch(() => null);
-    if (!nodeRes) throw new Error('Could not request node for element');
-
-    const modelRes = await this.send('DOM.getBoxModel', { nodeId: nodeRes.nodeId }).catch(() => null);
-    if (!modelRes) throw new Error('Could not get BoxModel for element');
-    
-    const c = modelRes.model.content;
-    const x = (c[0] + c[2]) / 2;
-    const y = (c[1] + c[5]) / 2;
-    
-    await this.send('Runtime.releaseObject', { objectId: obj.objectId }).catch(() => {});
-    return { x, y };
+    const js = `(async () => {
+      const el = await (${expression});
+      if (!el) throw new Error('Could not find element object');
+      el.scrollIntoView({ block: 'center', inline: 'center' });
+      const r = el.getBoundingClientRect();
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+    })()`;
+    return await this.evaluate(js, true);
   }
 
   async click(selector) {
