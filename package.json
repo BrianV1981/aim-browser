@@ -10,7 +10,11 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "jest": "^30.3.0"
+    "jest": "^30.3.0",
+    "jest-mock": "^30.3.0"
   },
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "ws": "^8.20.0"
+  }
 }
