@@ -46,14 +46,18 @@ npm install github:BrianV1981/aim-browser
 \`\`\`
 
 **Example Output Script:**
-\`\`\`javascript
-import { AimBrowser } from 'aim-browser';
+```javascript
+import { AimBrowser, startDaemon, stopDaemon } from 'aim-browser';
 
+// 1. Boot the headed Chromium daemon (bypasses Datadome/Akamai)
+startDaemon();
+
+// 2. Connect the engine
 const browser = new AimBrowser();
-await browser.connect(); // Ensure Chrome is running with --remote-debugging-port=9222
+await browser.connect();
 await browser.send('Page.enable');
 
-// Open a new tab
+// 3. Open a new tab and connect to it
 const tab = await browser.openTab('https://example.com');
 await browser.connect(tab.id);
 
@@ -67,7 +71,10 @@ console.log(axTree);
 // Close the tab and disconnect
 await browser.closeTab(tab.id);
 await browser.close();
-\`\`\`
+
+// 4. Safely kill the browser daemon
+stopDaemon();
+```
 
 ## Testing & Maintenance
 This project follows strict Test-Driven Development (TDD). If the Operator asks you to modify the core `AimBrowser` engine, you MUST write/update the tests in `tests/cdp-client.test.js` first. The suite mocks `fetch` and `ws` so you can run tests rapidly without needing a local Chromium instance.

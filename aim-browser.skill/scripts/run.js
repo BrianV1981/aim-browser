@@ -3,7 +3,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { AimBrowser } from '../../src/index.js';
+import repl from 'node:repl';
+import { AimBrowser, startDaemon, stopDaemon, checkDaemon } from '../../src/index.js';
 
 const STATE_FILE = path.join(os.homedir(), '.cache', 'aim-browser', 'state.json');
 
@@ -53,7 +54,19 @@ async function main() {
     while (i < args.length) {
       const arg = args[i];
       
-      if (arg === '--list' || arg === '--tabs') {
+      if (arg === '--start') {
+        console.log(`[Action] Starting headed browser daemon...`);
+        startDaemon();
+      }
+      else if (arg === '--stop') {
+        console.log(`[Action] Stopping browser daemon...`);
+        stopDaemon();
+      }
+      else if (arg === '--check') {
+        console.log(`[Action] Checking browser daemon status...`);
+        checkDaemon();
+      }
+      else if (arg === '--list' || arg === '--tabs') {
         const tabs = await browser.getTargets();
         const out = tabs.map((t, idx) => ({
           index: idx,

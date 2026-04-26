@@ -22,6 +22,11 @@ google-chrome --remote-debugging-port=9222 --remote-allow-origins="*" --headless
 ## Command Line Flags
 The `run.js` script executes arguments sequentially from left to right, maintaining state across tabs.
 
+### Lifecycle & Session
+- `--start`: Boots the persistent, headed Desktop Chromium daemon in the background to naturally bypass anti-bot protections.
+- `--check`: Verifies the CDP connection to the background daemon.
+- `--stop`: Safely terminates the background browser.
+
 ### Tab Management
 - `--list` / `--tabs`: Lists all open browser tabs and highlights the current active tab.
 - `--open <url>`: Opens a new tab with the given URL and sets it as the active tab.
