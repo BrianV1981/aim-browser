@@ -98,6 +98,16 @@ async function main() {
         await browser.autoScroll();
         console.log(`[Success] Reached bottom of page.`);
       }
+      else if (arg === '--solve-px') {
+        await ensureConnection();
+        console.log(`[Action] Attempting to solve PerimeterX / DataDome captcha...`);
+        const solved = await browser.solvePerimeterX();
+        if (solved) {
+          console.log(`[Success] Captcha sequence dispatched. Proceeding.`);
+        } else {
+          console.log(`[Result] No captcha found on page.`);
+        }
+      }
       else if (arg === '--open') {
         const url = args[++i];
         console.log(`[Action] Opening ${url}...`);

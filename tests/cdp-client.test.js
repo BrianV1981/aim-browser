@@ -223,4 +223,24 @@ describe('AimBrowser Core Engine', () => {
     const calls = mockWsInstance.send.mock.calls.map(c => JSON.parse(c[0]).method);
     expect(calls).toContain('Runtime.evaluate');
   });
+
+  it('should attempt to solve PerimeterX if present', async () => {
+    const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
+    await browser.connect();
+
+    mockWsInstance.send.mockImplementation((payload) => {
+      const { id, method, params } = JSON.parse(payload);
+      if (method === 'Runtime.evaluate') {
+        setTimeout(() => messageHandler(JSON.stringify({ id, result: { result: { value: { x: 500, y: 500 } } } })), 1);
+      } else {
+        setTimeout(() => messageHandler(JSON.stringify({ id, result: {} })), 1);
+      }
+    });
+
+    const solved = await browser.solvePerimeterX();
+    expect(solved).toBe(true);
+
+    const calls = mockWsInstance.send.mock.calls.map(c => JSON.parse(c[0]).method);
+    expect(calls).toContain('Input.dispatchMouseEvent');
+  });
 });

@@ -38,6 +38,8 @@ The `run.js` script executes arguments sequentially from left to right, maintain
 - `--wait-ready`: Waits until `document.readyState` is `complete`.
 - `--wait-selector <css>`: Polls the page until the CSS selector exists.
 - `--wait <ms>`: Hard pauses execution for the given milliseconds.
+- `--scroll-to-bottom`: Automatically scrolls down the page until lazy-loading completes.
+- `--solve-px`: Scans for PerimeterX / DataDome "Press & Hold" behavioral captchas. If found, it natively dispatches the exact coordinates, holds the mouse down for 10 seconds to generate human entropy, and releases it.
 
 ### DOM Discovery & Extraction
 - `--elements`: Scans the DOM for all visible, interactable elements (buttons, inputs, links) and prints their index, type, coordinates, and text content.

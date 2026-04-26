@@ -474,4 +474,36 @@ export class AimBrowser {
       lastHeight = currentHeight;
     }
   }
+
+  async solvePerimeterX() {
+    await this.send('Page.bringToFront').catch(() => {});
+    const pxCoords = await this.evaluate(`(() => {
+      const pxContainer = document.querySelector('#px-captcha');
+      if (pxContainer) {
+         const r = pxContainer.getBoundingClientRect();
+         return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+      }
+      const allDivs = document.querySelectorAll('div, button, p');
+      for (const el of allDivs) {
+        if (el.innerText && el.innerText.includes('Press & Hold')) {
+          const r = el.getBoundingClientRect();
+          if (r.width > 10 && r.height > 10) {
+             return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+          }
+        }
+      }
+      return null;
+    })()`);
+
+    if (pxCoords) {
+      await this.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: pxCoords.x, y: pxCoords.y, button: 'none' });
+      await new Promise(r => setTimeout(r, 500));
+      await this.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pxCoords.x, y: pxCoords.y, button: 'left', clickCount: 1 });
+      await new Promise(r => setTimeout(r, 10000));
+      await this.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pxCoords.x, y: pxCoords.y, button: 'left', clickCount: 1 });
+      await new Promise(r => setTimeout(r, 8000));
+      return true;
+    }
+    return false;
+  }
 }
