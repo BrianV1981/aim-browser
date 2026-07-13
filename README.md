@@ -72,15 +72,18 @@ import { AimBrowser, startDaemon, stopDaemon, checkDaemon } from 'aim-browser';
 ### Daemon lifecycle
 
 ```bash
-npm run daemon:start   # headed Chromium, VISIBLE by default, loopback CDP
-npm run daemon:check   # fail if not loopback / not healthy
-npm run daemon:stop    # kill only matching profile+port
+npm run daemon:start   # headed Chromium, MINIMIZED by default (loopback CDP)
+npm run daemon:check
+npm run daemon:stop
 
-# Skill pipeline (preferred for agents)
-npm run skill -- --start              # visible + bring to front
-npm run skill -- --start-minimized    # hide window (cron)
-npm run skill -- --show               # un-minimize + focus existing daemon
+# Skill pipeline
+npm run skill -- --start              # minimized — won't cover your desktop
+npm run skill -- --start-visible      # watch mode (you asked to see it)
+npm run skill -- --show               # peek: un-minimize mid-run
 ```
+
+**Seamless headed (real Chrome fingerprint, zero popup on your seat):**  
+virtual display / offscreen desktop — see **`docs/SEAMLESS_HEADED.md`**.
 
 Environment (selected):
 
@@ -90,7 +93,8 @@ Environment (selected):
 | `CDP_ADDR` | `127.0.0.1` | Non-loopback **refused** |
 | `CDP_PROFILE_DIR` | `~/.cache/aim-browser-profile` | Treat as sensitive |
 | `BROWSER_BIN` | auto-detect | |
-| `AIM_BROWSER_START_MINIMIZED` | `0` | Set `1` for unattended/cron |
+| `AIM_BROWSER_START_MINIMIZED` | `1` | `0` = watch mode |
+| `DISPLAY` | session | Point at Xvfb/Xephyr for seamless headed |
 | `AIM_BROWSER_NO_SANDBOX` | `0` | Opt-in only |
 
 ### Engine example
