@@ -22,16 +22,23 @@ export function runDaemonScript(scriptName, extraEnv = {}) {
 
 /**
  * Boot headed Chromium CDP daemon.
- * @param {{ minimized?: boolean }} [opts]
- *   minimized: true → hide window (cron). Default false → Operator can watch.
+ * @param {{ minimized?: boolean, visible?: boolean }} [opts]
+ *   Default: minimized (does not cover Operator desktop).
+ *   visible: true → watch mode (or AIM_BROWSER_START_MINIMIZED=0).
  */
 export function startDaemon(opts = {}) {
-  const minimized = opts.minimized === true
-    || process.env.AIM_BROWSER_START_MINIMIZED === '1';
+  let minimized = true;
+  if (opts.visible === true) minimized = false;
+  else if (opts.minimized === false) minimized = false;
+  else if (opts.minimized === true) minimized = true;
+  else if (process.env.AIM_BROWSER_START_MINIMIZED === '0') minimized = false;
+  else if (process.env.AIM_BROWSER_START_MINIMIZED === '1') minimized = true;
+
   runDaemonScript('start.sh', {
     AIM_BROWSER_START_MINIMIZED: minimized ? '1' : '0',
   });
 }
+
 
 export function stopDaemon() {
   runDaemonScript('stop.sh');

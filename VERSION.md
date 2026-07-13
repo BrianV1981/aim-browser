@@ -15,7 +15,7 @@ Machine-readable single field: `VERSION` (and `package.json` → `version`). Kee
 
 | Field | Value |
 |-------|--------|
-| **Version** | **1.1.1** |
+| **Version** | **1.1.2** |
 | **Git tip (at release)** | branch `chore/professional-cleanup` → merge to `master` |
 | **Preservation freeze** | `preserve/main-pre-professional-cleanup-20260712` @ `9ac967c` |
 | **Date** | 2026-07-12 |
@@ -27,7 +27,8 @@ Machine-readable single field: `VERSION` (and `package.json` → `version`). Kee
 
 | Version | Date | Notes |
 |---------|------|--------|
-| **1.1.1** | 2026-07-12 | Visible daemon by default; `--show` / `--start-minimized` pipeline flags; `showWindow()` CDP helper. |
+| **1.1.2** | 2026-07-12 | Operator-first: minimized by default; `--start-visible` watch mode; `docs/SEAMLESS_HEADED.md` (Xvfb/offscreen). |
+| **1.1.1** | 2026-07-12 | `showWindow()` + explicit minimize/visible flags (brief visible-default experiment reverted in 1.1.2). |
 | **1.1.0** | 2026-07-12 | Professional packaging: correct exports, VERSION/CHANGELOG/LICENSE/SECURITY, headed-daemon skill alignment, green unit tests, GitHub Actions CI. |
 | **1.0.0** | 2026-04 | Feature parity with clawgle lineage: headed lifecycle daemon, skill CLI, CDP engine (scroll, iframe, network, REPL, PerimeterX hold). Frozen at `preserve/main-pre-professional-cleanup-20260712`. |
 

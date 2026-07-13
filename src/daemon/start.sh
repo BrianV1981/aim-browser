@@ -70,13 +70,14 @@ if [[ "${AIM_BROWSER_NO_SANDBOX:-0}" == "1" ]]; then
   echo "[aim-browser] WARNING: launching with --no-sandbox (AIM_BROWSER_NO_SANDBOX=1)" >&2
   EXTRA_FLAGS+=(--no-sandbox)
 fi
-# Default VISIBLE so Operator/agents can watch the pipeline.
-# Cron/headless-host: AIM_BROWSER_START_MINIMIZED=1 or skill flag --start-minimized
-if [[ "${AIM_BROWSER_START_MINIMIZED:-0}" == "1" ]]; then
-  echo "[aim-browser] Starting minimized (AIM_BROWSER_START_MINIMIZED=1)" >&2
+# Default MINIMIZED so agent/cron work does not cover the Operator's desktop.
+# Watch mode: AIM_BROWSER_START_MINIMIZED=0 or skill flags --start-visible / --show
+# Seamless headed (no popup on your seat): see docs/SEAMLESS_HEADED.md (Xvfb / DISPLAY=:N)
+if [[ "${AIM_BROWSER_START_MINIMIZED:-1}" == "1" ]]; then
+  echo "[aim-browser] Starting minimized (default — set AIM_BROWSER_START_MINIMIZED=0 or use --start-visible to watch)" >&2
   EXTRA_FLAGS+=(--start-minimized)
 else
-  echo "[aim-browser] Starting visible (set AIM_BROWSER_START_MINIMIZED=1 to hide)" >&2
+  echo "[aim-browser] Starting visible (watch mode)" >&2
 fi
 
 

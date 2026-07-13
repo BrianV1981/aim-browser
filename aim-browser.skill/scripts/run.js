@@ -54,18 +54,20 @@ async function main() {
     while (i < args.length) {
       const arg = args[i];
       
-      if (arg === '--start' || arg === '--start-minimized') {
-        const minimized = arg === '--start-minimized';
-        console.log(`[Action] Starting headed browser daemon (${minimized ? 'minimized' : 'visible'})...`);
-        startDaemon({ minimized });
-        // If visible start, focus window once CDP is up so Operator can watch.
-        if (!minimized) {
+      if (arg === '--start' || arg === '--start-minimized' || arg === '--start-visible') {
+        // Default --start = minimized (don't steal Operator desktop).
+        // --start-visible = watch mode; --start-minimized = explicit same as default.
+        const visible = arg === '--start-visible';
+        const minimized = !visible;
+        console.log(`[Action] Starting headed browser daemon (${minimized ? 'minimized — stays off your desk' : 'VISIBLE watch mode'})...`);
+        startDaemon({ minimized, visible });
+        if (visible) {
           try {
             await browser.connect();
             connected = true;
             const shown = await browser.showWindow({ maximize: false });
             console.log(shown
-              ? '[Success] Browser window shown (not minimized).'
+              ? '[Success] Browser window shown (watch mode).'
               : '[Warn] Daemon up but could not set window bounds yet.');
           } catch (e) {
             console.warn(`[Warn] Daemon started; showWindow deferred: ${e.message}`);
@@ -76,7 +78,7 @@ async function main() {
         await ensureConnection();
         const shown = await browser.showWindow({ maximize: false });
         console.log(shown
-          ? '[Success] Browser brought to front (normal window state).'
+          ? '[Success] Browser brought to front (watch mode).'
           : '[Warn] Could not show window.');
       }
       else if (arg === '--stop') {

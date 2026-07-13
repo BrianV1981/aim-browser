@@ -3,13 +3,18 @@
 All notable changes to this project are documented in this file.  
 Version tracking narrative: see `VERSION.md`.
 
+## [1.1.2] — 2026-07-12
+
+### Changed
+- **Operator-first window policy:** default start is **minimized** again (agent work must not cover the desk).
+- Skill: `--start` = minimized; **`--start-visible`** = watch mode; `--show` still peeks mid-run.
+- Docs: `docs/SEAMLESS_HEADED.md` — Xvfb / virtual display / VM options for seamless headed (real Chrome, zero popup on `:0`).
+
 ## [1.1.1] — 2026-07-12
 
 ### Changed
-- **Visible browser by default:** `AIM_BROWSER_START_MINIMIZED` defaults to `0` (was `1`).
-- `startDaemon({ minimized })` passes env into daemon scripts.
-- Skill flags: `--start` shows window; `--start-minimized` for cron; `--show` / `--visible` un-minimizes + bringToFront.
-- Engine: `showWindow({ maximize })` helper via CDP window bounds.
+- `startDaemon({ minimized, visible })` env pass-through; `showWindow()` CDP helper.
+- Skill flags for explicit minimize/visible control.
 
 ## [1.1.0] — 2026-07-12
 
