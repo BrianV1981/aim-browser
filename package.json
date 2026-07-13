@@ -11,6 +11,7 @@
   "files": [
     "src/**/*",
     "aim-browser.skill/**/*",
+    "aim-google-ai.skill/**/*",
     "README.md",
     "LICENSE",
     "VERSION",
@@ -24,7 +25,8 @@
     "daemon:start": "bash src/daemon/start.sh",
     "daemon:stop": "bash src/daemon/stop.sh",
     "daemon:check": "bash src/daemon/check.sh",
-    "skill": "node aim-browser.skill/scripts/run.js"
+    "skill": "node aim-browser.skill/scripts/run.js",
+    "google-ai": "node aim-google-ai.skill/scripts/run.js"
   },
   "keywords": [
     "cdp",
