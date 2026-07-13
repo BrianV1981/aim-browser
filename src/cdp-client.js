@@ -428,6 +428,32 @@ export class AimBrowser {
     await this.send('Browser.setWindowBounds', { windowId, bounds: options });
   }
 
+  /**
+   * Un-minimize and focus the browser window so Operator can watch agent work.
+   * Safe no-op if the target has no window id.
+   * @param {{ maximize?: boolean }} [opts]
+   */
+  async showWindow(opts = {}) {
+    await this.send('Page.bringToFront').catch(() => {});
+    const win = await this.send('Browser.getWindowForTarget').catch(() => null);
+    const windowId = win?.windowId;
+    if (windowId === undefined) return false;
+    // normal first (clears minimized), optional maximize
+    await this.send('Browser.setWindowBounds', {
+      windowId,
+      bounds: { windowState: 'normal' },
+    }).catch(() => {});
+    if (opts.maximize) {
+      await this.send('Browser.setWindowBounds', {
+        windowId,
+        bounds: { windowState: 'maximized' },
+      }).catch(() => {});
+    }
+    await this.send('Page.bringToFront').catch(() => {});
+    return true;
+  }
+
+
   async blockMedia() {
     await this.send('Fetch.enable', {
       patterns: [

@@ -268,6 +268,25 @@ describe('AimBrowser Core Engine', () => {
     expect(calls).toContain('Input.dispatchMouseEvent');
   });
 
+  it('should showWindow without throwing when window id is available', async () => {
+    const browser = makeBrowser();
+    await browser.connect();
+
+    mockWsInstance.send.mockImplementation((payload) => {
+      const { id, method } = JSON.parse(payload);
+      if (method === 'Browser.getWindowForTarget') {
+        setTimeout(() => messageHandler(JSON.stringify({ id, result: { windowId: 1 } })), 1);
+      } else {
+        setTimeout(() => messageHandler(JSON.stringify({ id, result: {} })), 1);
+      }
+    });
+
+    const ok = await browser.showWindow();
+    expect(ok).toBe(true);
+    const methods = mockWsInstance.send.mock.calls.map(c => JSON.parse(c[0]).method);
+    expect(methods).toContain('Browser.setWindowBounds');
+  });
+
   it('should return false when PerimeterX UI is absent', async () => {
     const browser = makeBrowser();
     await browser.connect();

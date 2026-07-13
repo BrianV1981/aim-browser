@@ -70,9 +70,15 @@ if [[ "${AIM_BROWSER_NO_SANDBOX:-0}" == "1" ]]; then
   echo "[aim-browser] WARNING: launching with --no-sandbox (AIM_BROWSER_NO_SANDBOX=1)" >&2
   EXTRA_FLAGS+=(--no-sandbox)
 fi
-if [[ "${AIM_BROWSER_START_MINIMIZED:-1}" == "1" ]]; then
+# Default VISIBLE so Operator/agents can watch the pipeline.
+# Cron/headless-host: AIM_BROWSER_START_MINIMIZED=1 or skill flag --start-minimized
+if [[ "${AIM_BROWSER_START_MINIMIZED:-0}" == "1" ]]; then
+  echo "[aim-browser] Starting minimized (AIM_BROWSER_START_MINIMIZED=1)" >&2
   EXTRA_FLAGS+=(--start-minimized)
+else
+  echo "[aim-browser] Starting visible (set AIM_BROWSER_START_MINIMIZED=1 to hide)" >&2
 fi
+
 
 LAUNCH_ATTACHED="${AIM_BROWSER_LAUNCH_ATTACHED:-0}"
 if [[ "$LAUNCH_ATTACHED" == "1" ]]; then

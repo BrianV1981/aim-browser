@@ -3,6 +3,14 @@
 All notable changes to this project are documented in this file.  
 Version tracking narrative: see `VERSION.md`.
 
+## [1.1.1] — 2026-07-12
+
+### Changed
+- **Visible browser by default:** `AIM_BROWSER_START_MINIMIZED` defaults to `0` (was `1`).
+- `startDaemon({ minimized })` passes env into daemon scripts.
+- Skill flags: `--start` shows window; `--start-minimized` for cron; `--show` / `--visible` un-minimizes + bringToFront.
+- Engine: `showWindow({ maximize })` helper via CDP window bounds.
+
 ## [1.1.0] — 2026-07-12
 
 ### Added

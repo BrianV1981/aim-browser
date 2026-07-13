@@ -6,15 +6,31 @@ export { AimBrowser } from './cdp-client.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export function runDaemonScript(scriptName) {
+/**
+ * @param {string} scriptName
+ * @param {NodeJS.ProcessEnv} [extraEnv]
+ */
+export function runDaemonScript(scriptName, extraEnv = {}) {
   const scriptPath = join(__dirname, 'daemon', scriptName);
-  const res = spawnSync(scriptPath, { stdio: 'inherit' });
+  const res = spawnSync(scriptPath, {
+    stdio: 'inherit',
+    env: { ...process.env, ...extraEnv },
+  });
   if (res.error) throw res.error;
   if (res.status !== 0) throw new Error(`${scriptName} exited with status ${res.status}`);
 }
 
-export function startDaemon() {
-  runDaemonScript('start.sh');
+/**
+ * Boot headed Chromium CDP daemon.
+ * @param {{ minimized?: boolean }} [opts]
+ *   minimized: true → hide window (cron). Default false → Operator can watch.
+ */
+export function startDaemon(opts = {}) {
+  const minimized = opts.minimized === true
+    || process.env.AIM_BROWSER_START_MINIMIZED === '1';
+  runDaemonScript('start.sh', {
+    AIM_BROWSER_START_MINIMIZED: minimized ? '1' : '0',
+  });
 }
 
 export function stopDaemon() {
@@ -24,3 +40,4 @@ export function stopDaemon() {
 export function checkDaemon() {
   runDaemonScript('check.sh');
 }
+
