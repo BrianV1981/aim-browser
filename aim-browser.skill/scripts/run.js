@@ -54,9 +54,30 @@ async function main() {
     while (i < args.length) {
       const arg = args[i];
       
-      if (arg === '--start') {
-        console.log(`[Action] Starting headed browser daemon...`);
-        startDaemon();
+      if (arg === '--start' || arg === '--start-minimized') {
+        const minimized = arg === '--start-minimized';
+        console.log(`[Action] Starting headed browser daemon (${minimized ? 'minimized' : 'visible'})...`);
+        startDaemon({ minimized });
+        // If visible start, focus window once CDP is up so Operator can watch.
+        if (!minimized) {
+          try {
+            await browser.connect();
+            connected = true;
+            const shown = await browser.showWindow({ maximize: false });
+            console.log(shown
+              ? '[Success] Browser window shown (not minimized).'
+              : '[Warn] Daemon up but could not set window bounds yet.');
+          } catch (e) {
+            console.warn(`[Warn] Daemon started; showWindow deferred: ${e.message}`);
+          }
+        }
+      }
+      else if (arg === '--show' || arg === '--visible') {
+        await ensureConnection();
+        const shown = await browser.showWindow({ maximize: false });
+        console.log(shown
+          ? '[Success] Browser brought to front (normal window state).'
+          : '[Warn] Could not show window.');
       }
       else if (arg === '--stop') {
         console.log(`[Action] Stopping browser daemon...`);

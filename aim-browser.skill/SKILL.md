@@ -64,9 +64,14 @@ Always preserve YAML frontmatter in `SKILL.md`.
 `scripts/run.js` executes flags left → right and keeps tab state across the chain.
 
 ### Lifecycle
-- `--start` — Boot headed Chromium daemon (background, minimized by default).  
+- `--start` — Boot headed Chromium daemon **visible** (Operator can watch). Also focuses the window.  
+- `--start-minimized` — Same boot, but hide the window (cron / unattended).  
+- `--show` / `--visible` — Un-minimize + bring current target to front (if already running).  
+- `--minimize` / `--maximize` — Window state via CDP.  
 - `--check` — Verify loopback CDP listener.  
 - `--stop` — Stop matching daemon process only.
+
+Env: `AIM_BROWSER_START_MINIMIZED=1` forces minimized start when using the daemon scripts / `startDaemon()`.
 
 ### Tabs
 - `--list` / `--tabs` — List tabs.  
