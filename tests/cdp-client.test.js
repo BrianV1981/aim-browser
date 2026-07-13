@@ -7,6 +7,8 @@ describe('AimBrowser Core Engine', () => {
   let MockWebSocket;
   let mockWebSocketUrl;
   let messageHandler;
+  /** @type {AimBrowser[]} */
+  const openBrowsers = [];
 
   beforeEach(() => {
     mockWebSocketUrl = 'ws://127.0.0.1:9222/devtools/browser/1234';
@@ -25,7 +27,7 @@ describe('AimBrowser Core Engine', () => {
       }
       return Promise.resolve({ ok: false, status: 404 });
     });
-    
+
     mockWsInstance = {
       on: jest.fn((event, cb) => {
         if (event === 'open') setTimeout(cb, 5);
@@ -43,29 +45,52 @@ describe('AimBrowser Core Engine', () => {
     MockWebSocket = jest.fn(() => mockWsInstance);
   });
 
+  afterEach(async () => {
+    while (openBrowsers.length) {
+      const b = openBrowsers.pop();
+      try {
+        await b.close();
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+
+  function makeBrowser(opts = {}) {
+    const browser = new AimBrowser({
+      fetchImpl: mockFetch,
+      WebSocketImpl: MockWebSocket,
+      ...opts,
+    });
+    openBrowsers.push(browser);
+    return browser;
+  }
+
   it('should initialize with default options', () => {
     const browser = new AimBrowser();
-    expect(browser.options.headless).toBe(true);
+    expect(browser.options.headless).toBe(false);
+    expect(browser.options.host).toBe('127.0.0.1');
+    expect(browser.options.port).toBe(9222);
   });
 
   it('should connect to the browser via CDP', async () => {
-    const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
+    const browser = makeBrowser();
     await browser.connect();
     expect(browser.connected).toBe(true);
   });
 
   it('should get targets and open tabs', async () => {
-    const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
+    const browser = makeBrowser();
     const targets = await browser.getTargets();
     expect(targets.length).toBe(1);
     expect(targets[0].id).toBe('tab1');
-    
+
     const newTab = await browser.openTab('https://example.com');
     expect(newTab.id).toBe('newTab');
   });
 
   it('should evaluate javascript on the page', async () => {
-    const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
+    const browser = makeBrowser();
     await browser.connect();
 
     mockWsInstance.send.mockImplementation((payload) => {
@@ -80,25 +105,24 @@ describe('AimBrowser Core Engine', () => {
   });
 
   it('should click an element based on selector', async () => {
-    const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
+    const browser = makeBrowser();
     await browser.connect();
 
     mockWsInstance.send.mockImplementation((payload) => {
-      const { id, method, params } = JSON.parse(payload);
+      const { id, method } = JSON.parse(payload);
       let result = {};
       if (method === 'Runtime.evaluate') result = { result: { value: { x: 10, y: 10 } } };
-      
       setTimeout(() => messageHandler(JSON.stringify({ id, result })), 1);
     });
 
     await browser.click('#btn');
-    
+
     const calls = mockWsInstance.send.mock.calls.map(c => JSON.parse(c[0]).method);
     expect(calls).toContain('Input.dispatchMouseEvent');
   });
 
   it('should capture a screenshot', async () => {
-    const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
+    const browser = makeBrowser();
     await browser.connect();
 
     mockWsInstance.send.mockImplementation((payload) => {
@@ -114,17 +138,16 @@ describe('AimBrowser Core Engine', () => {
   });
 
   it('should configure media blocking', async () => {
-    const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
+    const browser = makeBrowser();
     await browser.connect();
 
     mockWsInstance.send.mockImplementation((payload) => {
-      const { id, method } = JSON.parse(payload);
+      const { id } = JSON.parse(payload);
       setTimeout(() => messageHandler(JSON.stringify({ id, result: {} })), 1);
     });
 
     await browser.blockMedia();
-    
-    // Simulate an incoming fetch request that should be paused and failed
+
     setTimeout(() => {
       messageHandler(JSON.stringify({
         method: 'Fetch.requestPaused',
@@ -140,7 +163,7 @@ describe('AimBrowser Core Engine', () => {
   });
 
   it('should set up network spying', async () => {
-    const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
+    const browser = makeBrowser();
     await browser.connect();
 
     mockWsInstance.send.mockImplementation((payload) => {
@@ -155,7 +178,6 @@ describe('AimBrowser Core Engine', () => {
     const spyCb = jest.fn();
     await browser.spyNetwork('.*api.*', spyCb);
 
-    // Simulate an incoming response event
     setTimeout(() => {
       messageHandler(JSON.stringify({
         method: 'Network.responseReceived',
@@ -168,21 +190,20 @@ describe('AimBrowser Core Engine', () => {
   });
 
   it('should resolve frame contexts', async () => {
-    const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
+    const browser = makeBrowser();
     await browser.connect();
 
     mockWsInstance.send.mockImplementation((payload) => {
       const { id, method } = JSON.parse(payload);
       if (method === 'Page.getFrameTree') {
-        setTimeout(() => messageHandler(JSON.stringify({ 
-          id, result: { frameTree: { frame: { id: 'main' }, childFrames: [{ frame: { id: 'f1', name: 'iframe1' } }] } } 
+        setTimeout(() => messageHandler(JSON.stringify({
+          id, result: { frameTree: { frame: { id: 'main' }, childFrames: [{ frame: { id: 'f1', name: 'iframe1' } }] } }
         })), 1);
       } else {
         setTimeout(() => messageHandler(JSON.stringify({ id, result: {} })), 1);
       }
     });
 
-    // Simulate an execution context for the iframe
     setTimeout(() => {
       messageHandler(JSON.stringify({
         method: 'Runtime.executionContextCreated',
@@ -194,13 +215,13 @@ describe('AimBrowser Core Engine', () => {
 
     await browser.useFrame('iframe1');
     expect(browser._activeContextId).toBe(42);
-    
+
     await browser.useFrame('main');
     expect(browser._activeContextId).toBe(null);
   });
 
   it('should autoScroll', async () => {
-    const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
+    const browser = makeBrowser();
     await browser.connect();
 
     let height = 1000;
@@ -209,27 +230,25 @@ describe('AimBrowser Core Engine', () => {
       if (method === 'Runtime.evaluate' && params.expression.includes('scrollHeight')) {
         setTimeout(() => messageHandler(JSON.stringify({ id, result: { result: { value: height } } })), 1);
       } else if (method === 'Runtime.evaluate' && params.expression.includes('scrollBy')) {
-        height += 500; // Simulate page growing
+        height += 500;
         setTimeout(() => messageHandler(JSON.stringify({ id, result: { result: { value: undefined } } })), 1);
       } else {
         setTimeout(() => messageHandler(JSON.stringify({ id, result: {} })), 1);
       }
     });
 
-    // Limit the timeout/delays heavily for the test
     await browser.autoScroll({ timeoutMs: 50, delayMs: 5, distance: 500 });
-    
-    // As long as it doesn't throw and iterates, we're good
+
     const calls = mockWsInstance.send.mock.calls.map(c => JSON.parse(c[0]).method);
     expect(calls).toContain('Runtime.evaluate');
   });
 
   it('should attempt to solve PerimeterX if present', async () => {
-    const browser = new AimBrowser({ fetchImpl: mockFetch, WebSocketImpl: MockWebSocket });
+    const browser = makeBrowser();
     await browser.connect();
 
     mockWsInstance.send.mockImplementation((payload) => {
-      const { id, method, params } = JSON.parse(payload);
+      const { id, method } = JSON.parse(payload);
       if (method === 'Runtime.evaluate') {
         setTimeout(() => messageHandler(JSON.stringify({ id, result: { result: { value: { x: 500, y: 500 } } } })), 1);
       } else {
@@ -237,10 +256,32 @@ describe('AimBrowser Core Engine', () => {
       }
     });
 
-    const solved = await browser.solvePerimeterX();
+    // Use accelerated timings so unit tests do not sleep 18s of production holds.
+    const solved = await browser.solvePerimeterX({
+      preHoldMs: 1,
+      holdMs: 1,
+      afterMs: 1,
+    });
     expect(solved).toBe(true);
 
     const calls = mockWsInstance.send.mock.calls.map(c => JSON.parse(c[0]).method);
     expect(calls).toContain('Input.dispatchMouseEvent');
+  });
+
+  it('should return false when PerimeterX UI is absent', async () => {
+    const browser = makeBrowser();
+    await browser.connect();
+
+    mockWsInstance.send.mockImplementation((payload) => {
+      const { id, method } = JSON.parse(payload);
+      if (method === 'Runtime.evaluate') {
+        setTimeout(() => messageHandler(JSON.stringify({ id, result: { result: { value: null } } })), 1);
+      } else {
+        setTimeout(() => messageHandler(JSON.stringify({ id, result: {} })), 1);
+      }
+    });
+
+    const solved = await browser.solvePerimeterX({ preHoldMs: 1, holdMs: 1, afterMs: 1 });
+    expect(solved).toBe(false);
   });
 });

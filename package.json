@@ -1,20 +1,57 @@
 {
   "name": "aim-browser",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+  "version": "1.1.0",
+  "description": "Persistent headed Chromium CDP engine and agent skill for A.I.M. — real-browser automation without Puppeteer/Playwright.",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "files": [
+    "src/**/*",
+    "aim-browser.skill/**/*",
+    "README.md",
+    "LICENSE",
+    "VERSION",
+    "VERSION.md",
+    "CHANGELOG.md",
+    "SECURITY.md"
+  ],
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --forceExit",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "daemon:start": "bash src/daemon/start.sh",
+    "daemon:stop": "bash src/daemon/stop.sh",
+    "daemon:check": "bash src/daemon/check.sh",
+    "skill": "node aim-browser.skill/scripts/run.js"
+  },
+  "keywords": [
+    "cdp",
+    "chromium",
+    "chrome-devtools-protocol",
+    "browser-automation",
+    "aim",
+    "headed-browser"
+  ],
+  "author": "BrianV1981",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BrianV1981/aim-browser.git"
+  },
+  "bugs": {
+    "url": "https://github.com/BrianV1981/aim-browser/issues"
+  },
+  "homepage": "https://github.com/BrianV1981/aim-browser#readme",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.20.0"
+  },
   "devDependencies": {
     "jest": "^30.3.0",
     "jest-mock": "^30.3.0"
-  },
-  "type": "module",
-  "dependencies": {
-    "ws": "^8.20.0"
   }
 }
