@@ -1,85 +1,107 @@
 ---
 name: aim-browser
-description: Interactive, ephemeral headless browser interface using the Chrome DevTools Protocol (CDP) for exploring web pages, testing CSS/XPath selectors, and interacting with elements.
+description: >
+  Persistent headed Chromium CDP engine for A.I.M. agents — explore pages, test
+  selectors, solve behavioral captchas, and drive a real browser profile without
+  Puppeteer/Playwright.
 ---
 
 # aim-browser Skill
 
 ## Overview
-This skill provides an interactive, ephemeral headless browser interface using the Chrome DevTools Protocol (CDP). 
 
-Agents use this skill when they need to dynamically explore a webpage, test CSS/XPath selectors, interact with elements, and figure out how a site works before writing a hardcoded deterministic script using the `AimBrowser` engine.
+This skill is the **agent CLI** on top of the `aim-browser` engine. It drives a
+**persistent, headed** Desktop Chromium instance (via the local lifecycle daemon)
+over the Chrome DevTools Protocol (CDP).
+
+**Paradigm:** real browsers beat headless spoofing. Prefer the daemon (`--start`)
+over ad-hoc headless Chrome.
+
+Agents use this skill to explore hostile/protected DOMs, discover selectors, and
+validate flows **before** writing cron/production scripts that import `AimBrowser`
+from the engine package.
 
 ## Prerequisites
-This skill connects to an existing local Chromium instance. Before running the skill, the Operator or the environment MUST have Chromium running with the remote debugging port exposed:
+
+1. Linux/WSL with Chromium or Google Chrome installed (or set `BROWSER_BIN`).  
+2. From the **aim-browser repo root** (or any install that includes `src/` + skill):
+
 ```bash
-google-chrome --remote-debugging-port=9222 --remote-allow-origins="*" --headless
+# Preferred: headed daemon (loopback CDP only)
+node aim-browser.skill/scripts/run.js --start
+node aim-browser.skill/scripts/run.js --check
 ```
 
-## Available Resources
-- `scripts/run.js`: A CLI wrapper around the `AimBrowser` engine that executes sequential browser actions.
+Equivalent npm scripts (from package root):
+
+```bash
+npm run daemon:start
+npm run daemon:check
+npm run daemon:stop
+```
+
+**Do not** expose CDP on non-loopback interfaces. The daemon refuses non-loopback binds.
+
+## Installation (multi-CLI)
+
+```bash
+git clone https://github.com/BrianV1981/aim-browser.git
+cd aim-browser && npm install
+```
+
+Link the skill directory into your agent host as appropriate:
+
+| CLI | Pattern |
+|-----|---------|
+| Gemini / AGY | `gemini skills link /path/to/aim-browser/aim-browser.skill` (or host-equivalent) |
+| Grok | Copy/link under project `.grok/skills/aim-browser/` or Operator skill path |
+| OpenCode | Copy/link under `.opencode/skills/aim-browser/` |
+
+Always preserve YAML frontmatter in `SKILL.md`.
 
 ## Command Line Flags
-The `run.js` script executes arguments sequentially from left to right, maintaining state across tabs.
 
-### Lifecycle & Session
-- `--start`: Boots the persistent, headed Desktop Chromium daemon in the background to naturally bypass anti-bot protections.
-- `--check`: Verifies the CDP connection to the background daemon.
-- `--stop`: Safely terminates the background browser.
+`scripts/run.js` executes flags left → right and keeps tab state across the chain.
 
-### Tab Management
-- `--list` / `--tabs`: Lists all open browser tabs and highlights the current active tab.
-- `--open <url>`: Opens a new tab with the given URL and sets it as the active tab.
-- `--use <index>`: Switches the active tab to the given index.
-- `--close [<index>]`: Closes the specified tab, or the active tab if no index is given.
+### Lifecycle
+- `--start` — Boot headed Chromium daemon (background, minimized by default).  
+- `--check` — Verify loopback CDP listener.  
+- `--stop` — Stop matching daemon process only.
 
-### Navigation & Waiting
-- `--url <url>`: Navigates the current tab to the specified URL and waits for readiness.
-- `--wait-ready`: Waits until `document.readyState` is `complete`.
-- `--wait-selector <css>`: Polls the page until the CSS selector exists.
-- `--wait <ms>`: Hard pauses execution for the given milliseconds.
-- `--scroll-to-bottom`: Automatically scrolls down the page until lazy-loading completes.
-- `--solve-px`: Scans for PerimeterX / DataDome "Press & Hold" behavioral captchas. If found, it natively dispatches the exact coordinates, holds the mouse down for 10 seconds to generate human entropy, and releases it.
+### Tabs
+- `--list` / `--tabs` — List tabs.  
+- `--open <url>` — New tab.  
+- `--use <index>` — Switch tab.  
+- `--close [<index>]` — Close tab.
 
-### DOM Discovery & Extraction
-- `--elements`: Scans the DOM for all visible, interactable elements (buttons, inputs, links) and prints their index, type, coordinates, and text content.
-- `--content`: Extracts and prints the visible text of the page.
-- `--content-ax`: Extracts and prints the Accessibility Tree (useful for complex SPAs).
-- `--html`: Extracts and prints `document.documentElement.outerHTML`.
-- `--screenshot <path> [--fullpage]`: Captures a PNG screenshot to the given path. Add `--fullpage` to resize the viewport to capture the entire scrollable area.
-- `--imgsave <path>`: Finds the largest image on the page and extracts it to the given path natively.
+### Navigation & waiting
+- `--url <url>` — Navigate + wait ready.  
+- `--wait-ready` / `--wait-selector <css>` / `--wait <ms>`  
+- `--scroll-to-bottom` — Lazy-load scroll.  
+- `--solve-px` — PerimeterX / “Press & Hold” native mouse hold.
 
-### Interaction & Input
-- `--click <target>`: Clicks an element. Target can be an exact CSS selector (starts with `#` or `.`) or an element `<index>` found via `--elements`.
-- `--tap <index>`: Directly taps the x/y center of the element at the given index.
-- `--tapxy <x> <y>`: Dispatches a native mouse click at the exact coordinates.
-- `--taptestid <id>`: Taps the element with the matching `data-testid` attribute.
-- `--type <index> <text>`: Focuses and clears the element at the index, then natively types the text.
-- `--textbox <text>`: Auto-discovers the primary textbox/textarea on the page and types into it.
-- `--keytype <text>`: Blindly types characters as native keyboard events.
-- `--keypress <key>`: Dispatches a native keydown/keyup event (supports: `enter`, `tab`, `backspace`, `escape`).
-- `--keycombo <combo>`: Dispatches a keyboard combination (supports: `ctrl+enter`).
+### Discovery
+- `--elements` — Interactable elements index.  
+- `--content` / `--content-ax` / `--html`  
+- `--screenshot <path> [--fullpage]` / `--imgsave <path>`
 
-### Environment Management
-- `--dlpath <dir>`: Sets the browser's download path to the specified directory.
-- `--upload <css> <file>`: Injects the given local file into the file input matching the CSS selector.
-- `--resize <w> <h>`, `--maximize`, `--minimize`: Manipulates the browser window bounds.
-- `--eval "<js>"`: Executes arbitrary JavaScript within the page context and prints the result.
-- `--block-media`: Intercepts and blocks requests for images, media, fonts, and stylesheets to speed up loading and save bandwidth.
-- `--spy <url-pattern>`: Listens for network responses matching the regex pattern and prints their raw JSON/text payload.
-- `--interactive` or `--repl`: Starts a Node.js REPL session where the `browser` engine is available globally, allowing you to type raw JS CDP commands interactively.
+### Interaction
+- `--click <css|index>` / `--tap <index>` / `--tapxy <x> <y>` / `--taptestid <id>`  
+- `--type <index> <text>` / `--textbox <text>` / `--keytype` / `--keypress` / `--keycombo`
+
+### Environment
+- `--dlpath` / `--upload` / `--resize` / `--maximize` / `--minimize`  
+- `--eval "<js>"` — Arbitrary page JS (full session authority).  
+- `--block-media` / `--spy <url-pattern>`  
+- `--interactive` / `--repl` — Node REPL with `browser` global.
 
 ## Examples
 
-### 1. Advanced Discovery
-Find all clickable elements on the screen.
 ```bash
-node aim-browser.skill/scripts/run.js --elements
-```
+# Discovery
+node aim-browser.skill/scripts/run.js --start --open "https://example.com" --elements
 
-### 2. Interaction Chain
-Navigate, type into a specific input index, and press enter.
-```bash
+# Interaction chain
 node aim-browser.skill/scripts/run.js \
   --url "https://example.com" \
   --type 2 "search query" \
@@ -87,3 +109,20 @@ node aim-browser.skill/scripts/run.js \
   --wait-selector ".results-container" \
   --screenshot "/tmp/results.png"
 ```
+
+## Production scripts
+
+After exploration, write permanent jobs against the **engine**, not one-off skill flags:
+
+```javascript
+import { AimBrowser, startDaemon, stopDaemon } from 'aim-browser';
+
+startDaemon();
+const browser = new AimBrowser();
+await browser.connect();
+// ...
+await browser.close();
+stopDaemon();
+```
+
+See the repo `README.md` and `SECURITY.md`.

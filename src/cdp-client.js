@@ -3,7 +3,9 @@ import WebSocket from 'ws';
 export class AimBrowser {
   constructor(options = {}) {
     this.options = {
-      headless: true,
+      // Connection defaults. Headed lifecycle is owned by src/daemon/start.sh
+      // (persistent Chromium). This flag is reserved for future attach modes.
+      headless: false,
       port: 9222,
       host: '127.0.0.1',
       fetchImpl: globalThis.fetch ? globalThis.fetch.bind(globalThis) : null,
@@ -475,7 +477,16 @@ export class AimBrowser {
     }
   }
 
-  async solvePerimeterX() {
+  /**
+   * Attempt a PerimeterX / HUMAN "Press & Hold" style captcha solve via native mouse events.
+   * @param {{ preHoldMs?: number, holdMs?: number, afterMs?: number }} [options]
+   *   Timing overrides (defaults match production human-entropy holds).
+   */
+  async solvePerimeterX(options = {}) {
+    const preHoldMs = options.preHoldMs ?? 500;
+    const holdMs = options.holdMs ?? 10000;
+    const afterMs = options.afterMs ?? 8000;
+
     await this.send('Page.bringToFront').catch(() => {});
     const pxCoords = await this.evaluate(`(() => {
       const pxContainer = document.querySelector('#px-captcha');
@@ -497,11 +508,11 @@ export class AimBrowser {
 
     if (pxCoords) {
       await this.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: pxCoords.x, y: pxCoords.y, button: 'none' });
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, preHoldMs));
       await this.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pxCoords.x, y: pxCoords.y, button: 'left', clickCount: 1 });
-      await new Promise(r => setTimeout(r, 10000));
+      await new Promise(r => setTimeout(r, holdMs));
       await this.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pxCoords.x, y: pxCoords.y, button: 'left', clickCount: 1 });
-      await new Promise(r => setTimeout(r, 8000));
+      await new Promise(r => setTimeout(r, afterMs));
       return true;
     }
     return false;
