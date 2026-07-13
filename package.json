@@ -1,6 +1,6 @@
 {
   "name": "aim-browser",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "Persistent headed Chromium CDP engine and agent skill for A.I.M. — real-browser automation without Puppeteer/Playwright.",
   "type": "module",
   "main": "./src/index.js",

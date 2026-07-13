@@ -421,7 +421,10 @@ export class AimBrowser {
   }
 
   async setWindowBounds(options) {
-    await this.send('Page.bringToFront').catch(() => {});
+    // Do not bringToFront when minimizing — that would pop the window back up.
+    if (options?.windowState !== 'minimized') {
+      await this.send('Page.bringToFront').catch(() => {});
+    }
     const win = await this.send('Browser.getWindowForTarget').catch(() => null);
     const windowId = win?.windowId;
     if (windowId === undefined) throw new Error('Could not get windowId');
@@ -452,6 +455,23 @@ export class AimBrowser {
     await this.send('Page.bringToFront').catch(() => {});
     return true;
   }
+
+  /**
+   * Minimize the browser window (CDP). Chrome often un-minimizes when a new tab
+   * opens via Target.createTarget /json/new — call this again after navigation.
+   * Does not bring the window to front first.
+   */
+  async minimizeWindow() {
+    const win = await this.send('Browser.getWindowForTarget').catch(() => null);
+    const windowId = win?.windowId;
+    if (windowId === undefined) return false;
+    await this.send('Browser.setWindowBounds', {
+      windowId,
+      bounds: { windowState: 'minimized' },
+    }).catch(() => {});
+    return true;
+  }
+
 
 
   async blockMedia() {

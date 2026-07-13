@@ -65,7 +65,7 @@ npm run google-ai -- "your query here"
 - **Do not** invent search results — always run this skill (or aim-browser) live.  
 - Google AI Mode DOM changes often; if extraction is empty, use `--screenshot` and fall back to `--content` via aim-browser.  
 - Respect Operator ToS/policy; do not hammer Google.  
-- Default window policy matches aim-browser: **minimized** unless `--visible`.  
+- Default window policy: **minimized**, and re-minimized after open/nav (Chrome un-minimizes on new tabs). Use `--visible` only when Operator wants to watch.  
 - Seamless headed (Xvfb): see `docs/SEAMLESS_HEADED.md` + `DISPLAY=:99`.
 
 ## Related

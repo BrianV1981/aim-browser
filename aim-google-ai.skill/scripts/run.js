@@ -210,20 +210,34 @@ async function main() {
   await ensureDaemon(opts);
 
   const browser = new AimBrowser({ port: opts.port, host: opts.host });
+  /** Re-assert minimized: Chrome often pops the window when opening tabs via CDP. */
+  const keepOffDesk = async () => {
+    if (opts.visible) return;
+    await browser.minimizeWindow().catch(() => {});
+  };
+
   try {
     await browser.connect();
+    await keepOffDesk();
+
     const url = buildAiModeUrl(opts.query);
     console.error(`[aim-google-ai] Opening AI Mode: ${url}`);
     const tab = await browser.openTab(url);
     await browser.connect(tab.id);
+    // Critical: /json/new usually un-minimizes Chromium — put it back immediately.
+    await keepOffDesk();
+
     await browser.waitReady(Math.min(opts.timeoutMs, 45000));
     await dismissConsent(browser);
+    await keepOffDesk();
+
     if (opts.visible) {
       await browser.showWindow().catch(() => {});
     }
 
     console.error('[aim-google-ai] Waiting for AI Mode answer…');
     await waitForAiAnswer(browser, opts.timeoutMs);
+    await keepOffDesk();
 
     const data = await extractAiMode(browser);
 
@@ -233,13 +247,18 @@ async function main() {
       fs.writeFileSync(opts.screenshot, Buffer.from(b64, 'base64'));
       console.error(`[aim-google-ai] Screenshot: ${opts.screenshot}`);
       data.screenshot = opts.screenshot;
+      await keepOffDesk();
     }
 
     printMarkdown(data, opts.query);
+    await keepOffDesk();
     await browser.close();
   } catch (e) {
     console.error(`[aim-google-ai] Fatal: ${e.message}`);
-    try { await browser.close(); } catch { /* */ }
+    try {
+      await keepOffDesk();
+      await browser.close();
+    } catch { /* */ }
     process.exit(1);
   } finally {
     if (opts.stopAfter) {

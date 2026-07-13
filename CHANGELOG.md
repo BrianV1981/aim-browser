@@ -3,7 +3,14 @@
 All notable changes to this project are documented in this file.  
 Version tracking narrative: see `VERSION.md`.
 
+## [1.1.3] — 2026-07-12
+
+### Fixed
+- Chrome **un-minimizes on new tab** (`/json/new`): re-apply `minimizeWindow()` after open/nav in skill + aim-google-ai (unless `--visible`).
+- `setWindowBounds({ windowState: 'minimized' })` no longer calls `Page.bringToFront` first (that undoes minimize).
+
 ## [1.1.2] — 2026-07-12
+
 
 ### Changed
 - **Operator-first window policy:** default start is **minimized** again (agent work must not cover the desk).

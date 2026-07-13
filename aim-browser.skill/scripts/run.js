@@ -32,6 +32,12 @@ async function main() {
   let state = await readState();
   let connected = false;
 
+  // Watch mode only if Operator explicitly asked (never default).
+  const watchMode = args.includes('--start-visible')
+    || args.includes('--show')
+    || args.includes('--visible')
+    || process.env.AIM_BROWSER_START_MINIMIZED === '0';
+
   const ensureConnection = async () => {
     if (connected) return;
     const tabs = await browser.getTargets();
@@ -47,6 +53,15 @@ async function main() {
     }
     await browser.connect(targetId);
     connected = true;
+    if (!watchMode) {
+      await browser.minimizeWindow().catch(() => {});
+    }
+  };
+
+  /** Chrome un-minimizes on /json/new and many navigations — re-assert unless watch mode. */
+  const keepOffDesk = async () => {
+    if (watchMode || !connected) return;
+    await browser.minimizeWindow().catch(() => {});
   };
 
   try {
@@ -134,13 +149,16 @@ async function main() {
       else if (arg === '--open') {
         const url = args[++i];
         console.log(`[Action] Opening ${url}...`);
+        // openTab via HTTP; Chrome usually un-minimizes — re-minimize after connect
+        if (connected) { await browser.close(); connected = false; }
         const created = await browser.openTab(url);
         const tabs = await browser.getTargets();
         state.currentTab = tabs.findIndex(t => t.id === created.id);
         if (state.currentTab === -1) state.currentTab = 0;
         writeState(state);
+        await ensureConnection();
+        await keepOffDesk();
         console.log(`[Success] Opened [${state.currentTab}] ${url}`);
-        if (connected) { await browser.close(); connected = false; }
       }
       else if (arg === '--close') {
         let idx = parseInt(args[i+1], 10);
@@ -159,6 +177,7 @@ async function main() {
         await browser.send('Page.enable');
         await browser.send('Page.navigate', { url });
         await browser.waitReady(45000).catch(() => {});
+        await keepOffDesk();
         console.log('[Success] Navigation complete.');
       }
       else if (arg === '--elements') {

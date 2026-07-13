@@ -287,6 +287,31 @@ describe('AimBrowser Core Engine', () => {
     expect(methods).toContain('Browser.setWindowBounds');
   });
 
+  it('should minimizeWindow without bringToFront', async () => {
+    const browser = makeBrowser();
+    await browser.connect();
+
+    mockWsInstance.send.mockImplementation((payload) => {
+      const { id, method } = JSON.parse(payload);
+      if (method === 'Browser.getWindowForTarget') {
+        setTimeout(() => messageHandler(JSON.stringify({ id, result: { windowId: 7 } })), 1);
+      } else {
+        setTimeout(() => messageHandler(JSON.stringify({ id, result: {} })), 1);
+      }
+    });
+
+    const ok = await browser.minimizeWindow();
+    expect(ok).toBe(true);
+    const payloads = mockWsInstance.send.mock.calls.map(c => JSON.parse(c[0]));
+    const bounds = payloads.find(p => p.method === 'Browser.setWindowBounds');
+    expect(bounds?.params?.bounds?.windowState).toBe('minimized');
+    // minimize must not call bringToFront first (that un-minimizes on many WMs)
+    const methods = payloads.map(p => p.method);
+    const boundsIdx = methods.indexOf('Browser.setWindowBounds');
+    const frontIdx = methods.indexOf('Page.bringToFront');
+    expect(frontIdx === -1 || frontIdx > boundsIdx).toBe(true);
+  });
+
   it('should return false when PerimeterX UI is absent', async () => {
     const browser = makeBrowser();
     await browser.connect();
