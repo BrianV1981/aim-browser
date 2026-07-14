@@ -1,8 +1,8 @@
 ---
 name: aim-maps-place
 description: >
-  Google Maps place search via aim-browser. Best-effort name, address, rating, phone, website.
-  DOM is volatile — always allow --screenshot. Stop-after-session default.
+  Google Maps place lookup via headed Chromium. Best-effort name, address,
+  rating, phone, website. DOM is volatile — use --screenshot when unsure.
 ---
 
 # aim-maps-place
@@ -11,3 +11,5 @@ description: >
 npm run maps-place -- "Statue of Liberty New York"
 npm run maps-place -- --screenshot /tmp/maps.png "public library Seattle"
 ```
+
+Defaults: minimized, stop after session. Treat missing fields as unavailable, not invented.

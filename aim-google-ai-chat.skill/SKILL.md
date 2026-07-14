@@ -1,8 +1,8 @@
 ---
 name: aim-google-ai-chat
 description: >
-  Multi-turn Google AI Mode via aim-browser. Initial query opens udm=50; --follow-up sends additional turns.
-  DOM for chat input is unstable — use --screenshot. Stop-after-session default.
+  Multi-turn Google AI Mode via headed Chromium. Initial query uses udm=50;
+  --follow-up / --turns for more turns. Prefer aim-google-ai for single-shot.
 ---
 
 # aim-google-ai-chat
@@ -12,4 +12,5 @@ npm run google-ai-chat -- "name three primary colors" --follow-up "which is brig
 npm run google-ai-chat -- --turns /tmp/turns.json "initial query"
 ```
 
-Single-shot without follow-ups: prefer **aim-google-ai**.
+Chat input DOM is unstable — use `--screenshot` when results look wrong.  
+Defaults: minimized, stop after session. Single-shot → **aim-google-ai**.

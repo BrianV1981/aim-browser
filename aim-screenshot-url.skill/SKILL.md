@@ -1,8 +1,8 @@
 ---
 name: aim-screenshot-url
 description: >
-  Open a URL in headed Chromium and save a PNG screenshot. Use for proof artifacts and audits.
-  Minimized by default; stops Chromium after the session.
+  Open a URL in headed Chromium and save a PNG. Use for proof artifacts.
+  Minimized by default; stops after session.
 ---
 
 # aim-screenshot-url
@@ -13,7 +13,4 @@ npm run screenshot-url -- --out /tmp/proof.png --url "https://example.com"
 npm run screenshot-url -- --full-page "https://example.com"
 ```
 
-## Agent notes
-
-- Always report the absolute `screenshot` path from JSON.
-- Do not claim visual content without reading the PNG or pairing with page-fetch.
+Report the absolute `screenshot` path from JSON. Do not describe visuals without the PNG (or pair with page-fetch).

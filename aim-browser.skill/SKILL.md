@@ -1,134 +1,70 @@
 ---
 name: aim-browser
 description: >
-  Persistent headed Chromium CDP engine for A.I.M. agents — explore pages, test
-  selectors, solve behavioral captchas, and drive a real browser profile without
-  Puppeteer/Playwright.
+  Headed Chromium CDP CLI: tabs, navigate, click/type, extract, screenshots,
+  optional captcha hold helper. Use for general page exploration when a one-verb
+  skill is not enough. Not Puppeteer/Playwright.
 ---
 
-# aim-browser Skill
+# aim-browser
 
-## Overview
+Agent CLI on the **aim-browser** engine. Prefer **one-verb skills** (google-ai, page-fetch, …) when they fit; use this skill for open-ended exploration.
 
-This skill is the **agent CLI** on top of the `aim-browser` engine. It drives a
-**persistent, headed** Desktop Chromium instance (via the local lifecycle daemon)
-over the Chrome DevTools Protocol (CDP).
+## Defaults
 
-**Paradigm:** real browsers beat headless spoofing. Prefer the daemon (`--start`)
-over ad-hoc headless Chrome.
+| Policy | Behavior |
+|--------|----------|
+| Window | **Minimized** (`--start-visible` / `--visible` to watch) |
+| After new tab | Re-minimized (Chrome often un-minimizes) |
+| CDP | Loopback only (`127.0.0.1`) |
+| Profile | Sensitive — do not log cookies/secrets |
 
-Agents use this skill to explore hostile/protected DOMs, discover selectors, and
-validate flows **before** writing cron/production scripts that import `AimBrowser`
-from the engine package.
+Prefer the **daemon** over ad-hoc headless Chrome.
 
-## Prerequisites
-
-1. Linux/WSL with Chromium or Google Chrome installed (or set `BROWSER_BIN`).  
-2. From the **aim-browser repo root** (or any install that includes `src/` + skill):
+## Setup
 
 ```bash
-# Preferred: headed daemon (loopback CDP only)
-node aim-browser.skill/scripts/run.js --start
-node aim-browser.skill/scripts/run.js --check
+cd /path/to/aim-browser && npm install
+npm run skill -- --start    # or: node aim-browser.skill/scripts/run.js --start
+npm run skill -- --check
 ```
 
-Equivalent npm scripts (from package root):
+Install into a vessel: `npm run install-skills -- <skills-dir> --mode symlink`  
+(or link `aim-browser.skill` into the host skills path).
 
-```bash
-npm run daemon:start
-npm run daemon:check
-npm run daemon:stop
-```
+## Flags (left → right; tab state kept)
 
-**Do not** expose CDP on non-loopback interfaces. The daemon refuses non-loopback binds.
+**Lifecycle:** `--start` · `--start-minimized` · `--start-visible` · `--show` · `--minimize` · `--maximize` · `--check` · `--stop`
 
-## Installation (multi-CLI)
+**Tabs:** `--list` · `--open <url>` · `--use <index>` · `--close [<index>]`
 
-```bash
-git clone https://github.com/BrianV1981/aim-browser.git
-cd aim-browser && npm install
-```
+**Navigate / wait:** `--url <url>` · `--wait-ready` · `--wait-selector <css>` · `--wait <ms>` · `--scroll-to-bottom` · `--solve-px`
 
-Link the skill directory into your agent host as appropriate:
+**Discover:** `--elements` · `--content` · `--content-ax` · `--html` · `--screenshot <path>` · `--fullpage` · `--imgsave <path>`
 
-| CLI | Pattern |
-|-----|---------|
-| Gemini / AGY | `gemini skills link /path/to/aim-browser/aim-browser.skill` (or host-equivalent) |
-| Grok | Copy/link under project `.grok/skills/aim-browser/` or Operator skill path |
-| OpenCode | Copy/link under `.opencode/skills/aim-browser/` |
+**Interact:** `--click` · `--tap` · `--tapxy` · `--taptestid` · `--type` · `--textbox` · `--keytype` · `--keypress` · `--keycombo`
 
-Always preserve YAML frontmatter in `SKILL.md`.
-
-## Command Line Flags
-
-`scripts/run.js` executes flags left → right and keeps tab state across the chain.
-
-### Lifecycle
-- `--start` — Boot headed Chromium daemon **minimized** (default — does **not** cover Operator work).  
-- `--start-minimized` — Explicit same as default.  
-- `--start-visible` — Watch mode: show window + bring to front.  
-- `--show` / `--visible` — Un-minimize + bring to front (mid-run peek).  
-- `--minimize` / `--maximize` — Window state via CDP.  
-- `--check` / `--stop` — Health / shutdown.
-
-Env: `AIM_BROWSER_START_MINIMIZED=0` or `--start-visible` for watch mode.  
-Seamless headed without any popup on your seat: see `docs/SEAMLESS_HEADED.md` (virtual display / Xvfb).
-
-### Tabs
-- `--list` / `--tabs` — List tabs.  
-- `--open <url>` — New tab.  
-- `--use <index>` — Switch tab.  
-- `--close [<index>]` — Close tab.
-
-### Navigation & waiting
-- `--url <url>` — Navigate + wait ready.  
-- `--wait-ready` / `--wait-selector <css>` / `--wait <ms>`  
-- `--scroll-to-bottom` — Lazy-load scroll.  
-- `--solve-px` — PerimeterX / “Press & Hold” native mouse hold.
-
-### Discovery
-- `--elements` — Interactable elements index.  
-- `--content` / `--content-ax` / `--html`  
-- `--screenshot <path> [--fullpage]` / `--imgsave <path>`
-
-### Interaction
-- `--click <css|index>` / `--tap <index>` / `--tapxy <x> <y>` / `--taptestid <id>`  
-- `--type <index> <text>` / `--textbox <text>` / `--keytype` / `--keypress` / `--keycombo`
-
-### Environment
-- `--dlpath` / `--upload` / `--resize` / `--maximize` / `--minimize`  
-- `--eval "<js>"` — Arbitrary page JS (full session authority).  
-- `--block-media` / `--spy <url-pattern>`  
-- `--interactive` / `--repl` — Node REPL with `browser` global.
+**Env / advanced:** `--eval "<js>"` · `--block-media` · `--spy <pattern>` · `--dlpath` · `--upload` · `--resize` · `--interactive` / `--repl`
 
 ## Examples
 
 ```bash
-# Discovery
-node aim-browser.skill/scripts/run.js --start --open "https://example.com" --elements
+npm run skill -- --start --open "https://example.com" --elements
 
-# Interaction chain
-node aim-browser.skill/scripts/run.js \
+npm run skill -- \
   --url "https://example.com" \
-  --type 2 "search query" \
+  --type 2 "query" \
   --keypress enter \
-  --wait-selector ".results-container" \
-  --screenshot "/tmp/results.png"
+  --wait-selector ".results" \
+  --screenshot /tmp/results.png
 ```
 
-## Production scripts
+## Engine (scripts)
 
-After exploration, write permanent jobs against the **engine**, not one-off skill flags:
+After exploration, permanent jobs import the package:
 
 ```javascript
 import { AimBrowser, startDaemon, stopDaemon } from 'aim-browser';
-
-startDaemon();
-const browser = new AimBrowser();
-await browser.connect();
-// ...
-await browser.close();
-stopDaemon();
 ```
 
-See the repo `README.md` and `SECURITY.md`.
+See repo `README.md` and `SECURITY.md`. Seamless headed (Xvfb): `docs/SEAMLESS_HEADED.md`.

@@ -1,8 +1,6 @@
 # aim-browser skill suite
 
-**Name:** aim-browser **skill suite** (engine + thin one-verb skills).  
-**Epic:** https://github.com/BrianV1981/aim-browser/issues/7  
-**Agent entrypoint:** repo root `README.md` (agent playbook).
+Thin one-verb skills on the headed CDP engine. Agent overview: repo root `README.md`.
 
 | Skill | npm script | Status |
 |-------|------------|--------|
@@ -19,6 +17,8 @@
 | aim-login-hold | `login-hold` | shipping |
 | aim-web-diff | `web-diff` | shipping |
 
-Shared: `src/skill-utils.js` (lifecycle, cache, extract).  
-Install into hosts: `scripts/install-skills.sh`.  
-Reporting: `docs/AGENT_REPORTING.md`.
+**Shared:** `src/skill-utils.js` (lifecycle, cache, extract).  
+**Install:** `npm run install-skills -- <vessel-skills-dir> --mode symlink`  
+**Reporting:** `docs/AGENT_REPORTING.md`
+
+**Defaults (all thin skills unless noted):** minimized · re-minimize after tab open · stop Chromium after session.

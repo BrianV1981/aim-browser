@@ -1,14 +1,14 @@
 ---
 name: aim-web-diff
 description: >
-  Snapshot page main text twice (interval) or compare to baseline JSON. Exit 0=unchanged, 2=changed, 1=error.
-  Uses aim-browser headed CDP. Stop-after-session default.
+  Snapshot page main text twice (interval) or compare to a baseline JSON.
+  Exit 0 = unchanged, 2 = changed, 1 = error. Headed CDP; stop after session.
 ---
 
 # aim-web-diff
 
 ```bash
-# Establish baseline
+# Baseline
 npm run web-diff -- --url "https://example.com" --save-baseline /tmp/ex-base.json
 
 # Compare later
