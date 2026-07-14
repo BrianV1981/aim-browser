@@ -1,10 +1,34 @@
 # aim-browser
 
 [![CI](https://github.com/BrianV1981/aim-browser/actions/workflows/ci.yml/badge.svg)](https://github.com/BrianV1981/aim-browser/actions/workflows/ci.yml)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support%20solo%20dev-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/BrianV1981)
 
 **Headed Chromium CDP engine + thin agent skill suite for A.I.M.**  
 Version **1.3.1** · MIT · `BrianV1981/aim-browser`  
 **Suite name:** *aim-browser skill suite* (see `docs/SKILL_SUITE.md`)
+
+---
+
+## Built by one person — not a SaaS
+
+> **I am a solo developer.** There is no corporate budget, no VC runway, and no product team behind this. I build and share because the alternative—stacking micro-transactions and renting every layer of your workflow—keeps getting worse.
+
+If that resonates, a coffee helps more than you might think:
+
+<p align="center">
+  <a href="https://www.buymeacoffee.com/BrianV1981" target="_blank" rel="noopener noreferrer">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50" />
+  </a>
+</p>
+
+**Why this exists as open source (the short version):**
+
+- **Paywall fatigue is real.** Build a stack of tools, get comfortable, then watch a vendor change the terms, meter the good parts, or lock the workflow behind another subscription.
+- **Micro-transactions add up.** “Just $X/seat/month” times every CLI, host, model, and dashboard is how independence dies by a thousand cuts.
+- **I have felt that rug-pull.** I really liked **Gemini CLI** because the *system* was open—I could own the workflow. When that path effectively vanished for people who depended on it, I was pushed into rebuilding around other vessels (including **aim-agy**) just to keep working. That hurt. It is also why I care about **portable tools and skills** that are not one vendor’s property.
+- **Hope, not hype:** share the wrenches. Keep the soul of the stack on *your* machine. Optional coffee is not a paywall—it is how a solo builder stays able to ship without turning every repo into a trap.
+
+MIT means you can fork, self-host, and walk away with the code. Coffee is optional gratitude, never required access.
 
 ---
 
@@ -345,6 +369,14 @@ See **`SECURITY.md`**.
 | `VERSION.md` / `CHANGELOG.md` | Narrative |
 
 Current: **1.3.1**.
+
+---
+
+## Support
+
+Solo-built. No corporate dollars. Optional coffee if this saved you a subscription or a rug-pull:
+
+**[Buy Me a Coffee →](https://www.buymeacoffee.com/BrianV1981)**
 
 ---
 
