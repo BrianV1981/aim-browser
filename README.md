@@ -11,7 +11,14 @@ Version **1.3.1** · MIT · `BrianV1981/aim-browser`
 
 ## Built by one person — not a SaaS
 
-> **I am a solo developer.** There is no corporate budget, no VC runway, and no product team behind this. I build and share because the alternative—stacking micro-transactions and renting every layer of your workflow—keeps getting worse.
+> **I am a solo developer.** No corporate budget, no VC runway, no product team. I build and share so more of us can **own our stacks** instead of renting every layer until the terms change.
+
+**Slogans I actually mean:**
+
+| | |
+|--|--|
+| **Own your stack.** | Open source is the answer when the alternative is another meter, seat, or gate. |
+| **Ask, don’t thrash.** | A.I.M. agents should *ask* (Operator, tools, memory) instead of thrashing the project until something sticks. |
 
 If that resonates, a coffee helps more than you might think:
 
@@ -23,10 +30,10 @@ If that resonates, a coffee helps more than you might think:
 
 **Why this exists as open source (the short version):**
 
-- **Paywall fatigue is real.** Build a stack of tools, get comfortable, then watch a vendor change the terms, meter the good parts, or lock the workflow behind another subscription.
+- **Paywall fatigue is real.** Build a stack, get comfortable, then watch the good parts get metered, locked, or re-skinned as a new plan.
+- **I have felt that rug-pull.** I am not alone. Plenty of us have woken up to news that a daily pipeline was changed, gated, or effectively taken away—not because we failed, but because someone else’s product roadmap moved. When a workflow you relied on stops being *yours*, you rebuild. That is why I care about **portable tools and skills** that live on *your* machine, not one vendor’s property.
 - **Micro-transactions add up.** “Just $X/seat/month” times every CLI, host, model, and dashboard is how independence dies by a thousand cuts.
-- **I have felt that rug-pull.** I really liked **Gemini CLI** because the *system* was open—I could own the workflow. When that path effectively vanished for people who depended on it, I was pushed into rebuilding around other vessels (including **aim-agy**) just to keep working. That hurt. It is also why I care about **portable tools and skills** that are not one vendor’s property.
-- **Hope, not hype:** share the wrenches. Keep the soul of the stack on *your* machine. Optional coffee is not a paywall—it is how a solo builder stays able to ship without turning every repo into a trap.
+- **Hope, not hype.** Share the wrenches. Keep the soul of the stack local. Optional coffee is not a paywall—it is how a solo builder keeps shipping without turning every repo into a trap.
 
 MIT means you can fork, self-host, and walk away with the code. Coffee is optional gratitude, never required access.
 
