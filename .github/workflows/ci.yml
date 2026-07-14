@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main, 'chore/**', 'fix/**', 'feat/**']
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Verify package entry resolves
+        run: |
+          node -e "import('file://' + process.cwd() + '/src/index.js').then(m => { if (!m.AimBrowser) process.exit(1); console.log('exports ok', Object.keys(m)); })"
