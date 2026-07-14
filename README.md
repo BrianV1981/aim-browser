@@ -102,8 +102,15 @@ Gmail / Drive / Calendar API?                ──► NOT this package → aim-
 | **aim-login-hold** | **shipping** | `npm run login-hold -- --ready-file …` | Human login gate | `aim-login-hold.skill/SKILL.md` |
 | **aim-web-diff** | **shipping** | `npm run web-diff -- --url …` | Snapshot diff | `aim-web-diff.skill/SKILL.md` |
 
-Epic / history: **https://github.com/BrianV1981/aim-browser/issues/7** · Status board: `docs/SKILL_SUITE.md`  
-Install skills into vessel dirs: `npm run install-skills -- /path/to/.grok/skills --mode symlink`
+Status board (what ships vs planned): `docs/SKILL_SUITE.md`
+
+### Install skills into a vessel
+
+```bash
+# From this repo root — copy or symlink the suite into a host skills dir
+npm run install-skills -- /path/to/project/.grok/skills --mode symlink
+# also works for .gemini/skills, .opencode/skills, etc.
+```
 
 ---
 
