@@ -330,7 +330,7 @@ Tests: `npm test` (mocked CDP — no Chrome required).
 |-------|------|
 | Engine | `src/cdp-client.js`, `src/index.js` |
 | Daemon | `src/daemon/{start,stop,check}.sh` |
-| Skills | `aim-browser.skill/`, `aim-google-ai.skill/` (+ suite in #7) |
+| Skills | `aim-*.skill/` (see matrix above) |
 
 Pure Node CDP (`ws` only) — **no** Puppeteer/Playwright dependency.
 
@@ -359,7 +359,6 @@ See **`SECURITY.md`**.
 | `docs/SEAMLESS_HEADED.md` | Xvfb / off-desk headed |
 | `docs/COMPETITIVE_NOTES.md` | Engineering research only — not runtime procedure |
 | `SECURITY.md` | Threat model / hardening |
-| issue [#7](https://github.com/BrianV1981/aim-browser/issues/7) | Roadmap epic |
 
 ---
 
@@ -412,7 +411,7 @@ Modular A.I.M. (Actual Intelligent Memory) repositories. **Flagship engine: [aim
 - **[aim-google](https://github.com/BrianV1981/aim-google)** — Google Workspace CLI (Gmail, Drive, Calendar, …).
 - **[aim-flight-recorder](https://github.com/BrianV1981/aim-flight-recorder)** — Forensic Markdown session extractor.
 - **[aim-boardroom](https://github.com/BrianV1981/aim-boardroom)** — Multi-agent orchestration room (OS multiplexing + artifacts).
-- **[aim-skills](https://github.com/BrianV1981/aim-skills)** — **Skills index / multi-CLI install registry** (agy, grok, opencode, codex).
+- **[aim-skill-library](https://github.com/BrianV1981/aim-skill-library)** — Shareable A.I.M. skills (communicate, calc, memory, …); install into vessels.
 
 **DNA, comms & lore:**
 - **[aim-coagents](https://github.com/BrianV1981/aim-coagents)** — DNA bank for sovereign co-agent blueprints.
