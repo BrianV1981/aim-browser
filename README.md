@@ -414,7 +414,7 @@ Modular A.I.M. (Actual Intelligent Memory) repositories. **Flagship engine: [aim
 - **[aim-skill-library](https://github.com/BrianV1981/aim-skill-library)** — Shareable A.I.M. skills (communicate, calc, memory, …); install into vessels.
 
 **DNA, comms & lore:**
-- **[aim-coagents](https://github.com/BrianV1981/aim-coagents)** — DNA bank for sovereign co-agent blueprints.
+- **[aim-coagents](https://github.com/BrianV1981/aim-coagents)** — DNA bank: personas (roles) + blueprints (sovereign co-agents).
 - **[aim-knowledge](https://github.com/BrianV1981/aim-knowledge)** — Public Obsidian vault / deep-lore archive.
 - **[aim-chalkboard](https://github.com/BrianV1981/aim-chalkboard)** — Optional cross-host async git mailbox (PoC; default same-host comms = **aim-communicate** skill).
 
