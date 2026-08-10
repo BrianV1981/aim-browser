@@ -1,7 +1,18 @@
-import { cacheKey, cacheGet, cacheSet, cacheDir, parseSkillArgs } from '../src/skill-utils.js';
+import {
+  cacheKey,
+  cacheGet,
+  cacheSet,
+  cacheDir,
+  parseSkillArgs,
+  resolvePackageRoot,
+  isAimBrowserPackageRoot,
+} from '../src/skill-utils.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { fileURLToPath } from 'node:url';
+
+const PKG_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('skill-utils', () => {
   const tmp = path.join(os.tmpdir(), `aim-cache-test-${process.pid}`);
@@ -53,5 +64,35 @@ describe('skill-utils', () => {
       payload: { answer: 'old' },
     }));
     expect(cacheGet('exp', { q: 1 }, 1000)).toBeNull();
+  });
+
+  it('isAimBrowserPackageRoot accepts this repo', () => {
+    expect(isAimBrowserPackageRoot(PKG_ROOT)).toBe(true);
+    expect(isAimBrowserPackageRoot(os.tmpdir())).toBe(false);
+  });
+
+  it('resolvePackageRoot finds monorepo root', () => {
+    const prev = process.env.AIM_BROWSER_ROOT;
+    delete process.env.AIM_BROWSER_ROOT;
+    try {
+      expect(resolvePackageRoot(path.join(PKG_ROOT, 'src'))).toBe(PKG_ROOT);
+      expect(resolvePackageRoot()).toBe(PKG_ROOT);
+    } finally {
+      if (prev !== undefined) process.env.AIM_BROWSER_ROOT = prev;
+      else delete process.env.AIM_BROWSER_ROOT;
+    }
+  });
+
+  it('resolvePackageRoot honors AIM_BROWSER_ROOT and rejects bad env', () => {
+    const prev = process.env.AIM_BROWSER_ROOT;
+    try {
+      process.env.AIM_BROWSER_ROOT = PKG_ROOT;
+      expect(resolvePackageRoot('/tmp')).toBe(PKG_ROOT);
+      process.env.AIM_BROWSER_ROOT = os.tmpdir();
+      expect(() => resolvePackageRoot()).toThrow(/AIM_BROWSER_ROOT/);
+    } finally {
+      if (prev !== undefined) process.env.AIM_BROWSER_ROOT = prev;
+      else delete process.env.AIM_BROWSER_ROOT;
+    }
   });
 });
