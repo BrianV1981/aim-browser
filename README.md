@@ -106,11 +106,29 @@ Status board (what ships vs planned): `docs/SKILL_SUITE.md`
 
 ### Install skills into a vessel
 
+From this **package root**, install creates host folders named by skill id (**no** `.skill` suffix), e.g. `aim-google-ai/`, not `aim-google-ai.skill/`.
+
 ```bash
-# From this repo root — copy or symlink the suite into a host skills dir
+cd /path/to/aim-browser
+npm install
+
+# Grok — user-global
+npm run install-skills -- "${HOME}/.grok/skills" --mode symlink
+# Grok — project-local
 npm run install-skills -- /path/to/project/.grok/skills --mode symlink
-# also works for .gemini/skills, .opencode/skills, etc.
+
+# AGY / Antigravity — user-global
+npm run install-skills -- "${HOME}/.gemini/antigravity-cli/skills" --mode symlink
+# AGY — project-local
+npm run install-skills -- /path/to/project/.gemini/skills --mode symlink
+
+# OpenCode
+npm run install-skills -- /path/to/project/.opencode/skills --mode symlink
 ```
+
+Dual-vessel policy: [`docs/VESSEL_DUAL_COMPAT.md`](docs/VESSEL_DUAL_COMPAT.md).
+
+**Engine root:** run skill CLIs from this package root, or set `AIM_BROWSER_ROOT` to it so `src/` resolves.
 
 ---
 
@@ -145,16 +163,20 @@ npm install
 
 ### Install skills into agent hosts
 
-Copy or symlink skill folders so your host discovers them (preserve `SKILL.md` YAML frontmatter):
+| Host | User-global | Project-local |
+|------|-------------|-----------------|
+| **Grok** | `~/.grok/skills/aim-google-ai/` | `<project>/.grok/skills/…` |
+| **AGY** | `~/.gemini/antigravity-cli/skills/…` | `<project>/.gemini/skills/…` |
+| **OpenCode** | — | `<project>/.opencode/skills/…` |
 
-| Host | Pattern |
-|------|---------|
-| Grok | `.grok/skills/aim-google-ai/`, `.grok/skills/aim-browser/` |
-| OpenCode | `.opencode/skills/…` |
-| Gemini / AGY | host skill-link equivalent |
+Always run CLIs from the **aim-browser package root** (or set `AIM_BROWSER_ROOT`) so relative imports to `src/` resolve.
 
-Always run CLIs from the **aim-browser package root** so relative imports to `src/` resolve (current monorepo layout).
+### Design rules (packaging)
 
+1. No machine-local absolute homes or operator usernames in skills/docs.  
+2. Install dest name = skill id (strip source `.skill` suffix).  
+3. Dual vessel: keep Grok **and** AGY install examples.  
+4. Prefer `$HOME` / `~` / `/path/to/…` in docs.
 ---
 
 ## How to run — shipping skills

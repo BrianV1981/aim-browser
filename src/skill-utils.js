@@ -6,9 +6,69 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import os from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { AimBrowser, startDaemon, stopDaemon, checkDaemon } from './index.js';
 
 export { AimBrowser, startDaemon, stopDaemon, checkDaemon };
+
+/**
+ * True if dir looks like the aim-browser package root (package.json + src/index.js).
+ * @param {string} dir
+ */
+export function isAimBrowserPackageRoot(dir) {
+  try {
+    const pkgPath = path.join(dir, 'package.json');
+    const indexPath = path.join(dir, 'src', 'index.js');
+    if (!fs.existsSync(pkgPath) || !fs.existsSync(indexPath)) return false;
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    return pkg && pkg.name === 'aim-browser';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve aim-browser package root for engine imports and daemon scripts.
+ *
+ * Order:
+ * 1. `AIM_BROWSER_ROOT` if set and valid
+ * 2. Walk upward from `startFrom` (default: this module's parent = package root in monorepo)
+ *
+ * @param {string} [startFrom]
+ * @returns {string} absolute package root
+ * @throws {Error} when not found — set AIM_BROWSER_ROOT
+ */
+export function resolvePackageRoot(startFrom) {
+  const envRoot = process.env.AIM_BROWSER_ROOT;
+  if (envRoot && String(envRoot).trim()) {
+    const resolved = path.resolve(String(envRoot).trim());
+    if (isAimBrowserPackageRoot(resolved)) return resolved;
+    throw new Error(
+      `AIM_BROWSER_ROOT is set but is not a valid aim-browser package root: ${resolved}\n` +
+        `Expected package.json name "aim-browser" and src/index.js.`,
+    );
+  }
+
+  let dir = path.resolve(startFrom || path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
+  // If startFrom is a file path, use its directory
+  try {
+    if (fs.existsSync(dir) && fs.statSync(dir).isFile()) dir = path.dirname(dir);
+  } catch {
+    /* ignore */
+  }
+
+  for (let i = 0; i < 12; i++) {
+    if (isAimBrowserPackageRoot(dir)) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  throw new Error(
+    'Could not resolve aim-browser package root (need package.json name aim-browser + src/index.js).\n' +
+      'Run CLIs from the aim-browser clone, or set AIM_BROWSER_ROOT to that directory.',
+  );
+}
 
 /** @typedef {{
  *   visible: boolean,
