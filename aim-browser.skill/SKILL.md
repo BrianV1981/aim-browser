@@ -8,7 +8,15 @@ description: >
 
 # aim-browser
 
-Agent CLI on the **aim-browser** engine. Prefer **one-verb skills** (google-ai, page-fetch, …) when they fit; use this skill for open-ended exploration.
+Agent CLI on the **aim-browser** engine. Prefer **one-verb skills** (google-ai, page-fetch, etc.) when they fit; use this skill for open-ended exploration.
+
+> [!IMPORTANT] 
+> **TACTICAL DISTINCTION (Native `/browser` vs `aim-browser`)**
+> - Use the **Native `/browser` subagent** (via slash command) for interactive pair-programming on the Operator's visible screen, where stealth is not required.
+> - Use **`aim-browser`** (this repo) for hostile extraction, background batch-scraping, and bypassing advanced bot heuristics (Cloudflare, Datadome).
+>
+> **WINDOWS 11 EXECUTION MANDATE**
+> The `aim-browser` daemon scripts (`start.sh`, `check.sh`) are fundamentally designed for Linux. When operating on an Antigravity Windows 11 environment, you MUST execute `aim-browser` commands exclusively through the WSL bridge (e.g., `wsl bash -c "npm run skill -- ..."`) rather than attempting native PowerShell execution.
 
 ## Defaults
 
