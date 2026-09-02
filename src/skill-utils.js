@@ -7,7 +7,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { AimBrowser, startDaemon, stopDaemon, checkDaemon } from './index.js';
+import { AimBrowser, startDaemonAsync as startDaemon, stopDaemonAsync as stopDaemon, checkDaemonAsync as checkDaemon } from './index.js';
 
 export { AimBrowser, startDaemon, stopDaemon, checkDaemon };
 
@@ -146,7 +146,7 @@ export function applyCdpEnv(opts) {
 
 export async function ensureDaemon(opts, label = 'skill') {
   try {
-    checkDaemon();
+    await checkDaemon();
     return;
   } catch {
     /* down */
@@ -155,16 +155,16 @@ export async function ensureDaemon(opts, label = 'skill') {
     throw new Error('CDP daemon not running and --no-start was set. Run npm run daemon:start first.');
   }
   console.error(`[${label}] Starting aim-browser daemon…`);
-  startDaemon({ visible: opts.visible, minimized: !opts.visible });
+  await startDaemon({ visible: opts.visible, minimized: !opts.visible });
   for (let i = 0; i < 25; i++) {
     try {
-      checkDaemon();
+      await checkDaemon();
       return;
     } catch {
       await sleep(400);
     }
   }
-  checkDaemon();
+  await checkDaemon();
 }
 
 export function sleep(ms) {
@@ -232,7 +232,7 @@ export async function endSession(browser, keepOffDesk, opts, label = 'skill') {
   if (opts.stopAfter) {
     console.error(`[${label}] Stopping daemon (close after session)…`);
     try {
-      stopDaemon();
+      await stopDaemon();
     } catch {
       /* */
     }
