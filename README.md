@@ -64,6 +64,16 @@ aim-browser          = TOOL (engine + daemon)
 
 ---
 
+## Cross-Platform & Windows 11 Native (v1.3.1+)
+
+As of version 1.3.1, `aim-browser`'s daemon has been completely rewritten from legacy `bash` scripts (`start.sh`, `stop.sh`, `check.sh`) into **pure, cross-platform Node.js** (`src/daemon.js`).
+
+- **No WSL required:** You can now run `aim-browser` natively on Windows 11 inside PowerShell (`npm run skill`).
+- **Hardware Acceleration:** Running natively on Windows allows Chromium to directly attach to the physical GPU, vastly improving stealth scores (WebGL flags remain green) compared to software rendering inside WSL.
+- **Backwards Compatible:** The Node.js daemon is fully backwards compatible with existing Linux/Ubuntu servers and CI pipelines.
+
+---
+
 ## Which skill do I use? (decision tree)
 
 ```text
