@@ -10,9 +10,14 @@ export class AimBrowser {
       host: '127.0.0.1',
       fetchImpl: globalThis.fetch ? globalThis.fetch.bind(globalThis) : null,
       WebSocketImpl: WebSocket,
+      stealFocus: true,
+      lease: null,
+      actor: null,
+      onHudEvent: null,
       ...options,
     };
     this.connected = false;
+    this.targetId = null;
     this.ws = null;
     this._messageId = 0;
     this._pendingCommands = new Map();
@@ -56,9 +61,11 @@ export class AimBrowser {
       const tab = tabs.find(t => t.id === targetId);
       if (!tab) throw new Error(`Tab ${targetId} not found`);
       wsUrl = tab.webSocketDebuggerUrl;
+      this.targetId = targetId;
     } else {
       const data = await this._httpJson('/json/version');
       wsUrl = data.webSocketDebuggerUrl;
+      this.targetId = null;
     }
 
     if (!wsUrl) throw new Error('No webSocketDebuggerUrl found in metadata');
@@ -210,20 +217,43 @@ export class AimBrowser {
     return await this.evaluate(js, true);
   }
 
+  async _maybeBringToFront() {
+    if (this.options.stealFocus === false) return;
+    await this.send('Page.bringToFront').catch(() => {});
+  }
+
+  _emitHud(action, label = '', x = null, y = null) {
+    if (typeof this.options.onHudEvent !== 'function') return;
+    try {
+      this.options.onHudEvent({
+        targetId: this.targetId || '',
+        lease: this.options.lease || '',
+        actor: this.options.actor || this.options.lease || 'agent',
+        action,
+        label,
+        x,
+        y,
+      });
+    } catch {
+      /* never fail browser actuation on HUD telemetry */
+    }
+  }
+
   async click(selector) {
     const expr = `document.querySelector(${JSON.stringify(selector)})`;
     const center = await this._getElementCenter(expr);
-    await this.tap(center.x, center.y);
+    await this.tap(center.x, center.y, selector);
   }
 
-  async tap(x, y) {
+  async tap(x, y, label = '') {
+    this._emitHud('click', label || `(${x}, ${y})`, x, y);
     await this.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' }, 15000).catch(() => {});
     await this.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
     await this.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
   }
 
   async tapElementIndex(index) {
-    await this.send('Page.bringToFront').catch(() => {});
+    await this._maybeBringToFront();
     const center = await this._getElementCenter(`(() => {
       const isVisible = (el) => {
         const r = el.getBoundingClientRect();
@@ -234,11 +264,11 @@ export class AimBrowser {
       const els = Array.from(document.querySelectorAll(selector)).filter(isVisible);
       return els[${index}];
     })()`);
-    await this.tap(center.x, center.y);
+    await this.tap(center.x, center.y, `element[${index}]`);
   }
 
   async typeText(index, text) {
-    await this.send('Page.bringToFront').catch(() => {});
+    await this._maybeBringToFront();
     const center = await this._getElementCenter(`(() => {
       const isVisible = (el) => {
         const r = el.getBoundingClientRect();
@@ -270,6 +300,7 @@ export class AimBrowser {
       }
       return el;
     })()`);
+    this._emitHud('type', `element[${index}]`, center.x, center.y);
     await this.send('Input.insertText', { text });
   }
 

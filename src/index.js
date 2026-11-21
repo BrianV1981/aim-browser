@@ -18,3 +18,26 @@ export function checkDaemon() {
 }
 
 export { checkDaemonAsync, startDaemonAsync, stopDaemonAsync };
+export {
+  acquireTabLease,
+  emitHudEvent,
+  readHudEvent,
+  readLeases,
+  releaseTabLease,
+  resolveStateDir,
+  syncLeasesWithTargets,
+} from './tab-leases.js';
+export {
+  actOnLandmark,
+  checkElementOcclusion,
+  checkLayoutHealth,
+  domainToMapPath,
+  inspectInteractiveElements,
+  loadSiteMap,
+  normalizeDomainKey,
+  recordLandmark,
+  resolveMappedLandmark,
+  resolveMapsDir,
+  saveSiteMap,
+  scoreAnchorMatch,
+} from './site-maps.js';

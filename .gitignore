@@ -9,4 +9,6 @@ coverage/
 .idea/
 .vscode/
 *.swp
+workspace/
+maps/
 

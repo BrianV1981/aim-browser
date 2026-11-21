@@ -44,11 +44,13 @@ Install into a vessel: `npm run install-skills -- <skills-dir> --mode symlink`
 
 **Lifecycle:** `--start` · `--start-minimized` · `--start-visible` · `--show` · `--minimize` · `--maximize` · `--check` · `--stop`
 
-**Tabs:** `--list` · `--open <url>` · `--use <index>` · `--close [<index>]`
+**Tabs & Subagent Leases:** `--list` · `--open <url>` · `--use <index>` · `--close [<index>]` · `--tab <lease|new>` · `--actor <name>` · `--leases` · `--release-tab <lease>`
 
 **Navigate / wait:** `--url <url>` · `--wait-ready` · `--wait-selector <css>` · `--wait <ms>` · `--scroll-to-bottom` · `--solve-px`
 
-**Discover:** `--elements` · `--content` · `--content-ax` · `--html` · `--screenshot <path>` · `--fullpage` · `--imgsave <path>`
+**Discover & Layout Math:** `--elements` · `--content` · `--content-ax` · `--html` · `--check-occlusion <x> <y>` · `--check-layout` · `--screenshot <path>` · `--fullpage` · `--imgsave <path>`
+
+**Self-Healing Site Maps (`0` VLM tokens):** `--map-record <key> <selector|index>` · `--map-click <key>` · `--map-type <key> <text>` · `--map-show [<domain>]`
 
 **Interact:** `--click` · `--tap` · `--tapxy` · `--taptestid` · `--type` · `--textbox` · `--keytype` · `--keypress` · `--keycombo`
 

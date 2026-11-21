@@ -7,6 +7,8 @@
   "exports": {
     ".": "./src/index.js",
     "./skill-utils": "./src/skill-utils.js",
+    "./tab-leases": "./src/tab-leases.js",
+    "./site-maps": "./src/site-maps.js",
     "./package.json": "./package.json"
   },
   "files": [
