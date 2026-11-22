@@ -1,6 +1,59 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { execFileSync } from 'node:child_process';
+
+/**
+ * Auto-detect the calling agent's owning tmux session or repository name so
+ * aim-connect can color-match leased browser tabs to Fleet Sidebar sessions (#13).
+ * @param {{ session?: string, env?: NodeJS.ProcessEnv, cwd?: string, execFn?: typeof execFileSync }} [opts]
+ * @returns {string}
+ */
+export function detectCallerSession(opts = {}) {
+  const env = opts.env || process.env;
+  const explicit = String(
+    opts.session ?? env.AIM_BROWSER_SESSION ?? env.AIM_SESSION ?? ''
+  ).trim();
+  if (explicit) return explicit.slice(0, 64);
+
+  const execFn = opts.execFn || execFileSync;
+  if (env.TMUX_PANE || env.TMUX) {
+    try {
+      const tmuxArgs = ['display-message', '-p'];
+      if (env.TMUX_PANE) tmuxArgs.push('-t', String(env.TMUX_PANE));
+      tmuxArgs.push('#S');
+      const out = String(
+        execFn('tmux', tmuxArgs, {
+          timeout: 400,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }) || ''
+      ).trim();
+      if (out) return out.slice(0, 64);
+    } catch {
+      /* fall back to git/cwd inspection */
+    }
+  }
+
+  let rawCwd = String(opts.cwd || process.cwd() || '').trim();
+  if (!rawCwd) return '';
+  const normalized = rawCwd.replace(/\\/g, '/').replace(/\/workspace\/issue-[^/]+.*$/i, '');
+  let cur = path.resolve(normalized);
+  for (let depth = 0; depth < 6; depth++) {
+    try {
+      const gitMarker = path.join(cur, '.git');
+      if (fs.existsSync(gitMarker)) {
+        return path.basename(cur).slice(0, 64);
+      }
+    } catch {
+      /* ignore */
+    }
+    const parent = path.dirname(cur);
+    if (parent === cur) break;
+    cur = parent;
+  }
+  return '';
+}
 
 /**
  * Resolve state directory for multi-tab targetId leases and live HUD overlays.
@@ -99,7 +152,9 @@ export async function acquireTabLease(browser, leaseName, opts = {}) {
   const leases = syncLeasesWithTargets(liveTargets, stateDir);
 
   const effectiveLease = rawName === 'new' ? `tab-${Date.now().toString(36)}` : rawName;
-  const actor = opts.actor || effectiveLease;
+  const session =
+    opts.session !== undefined ? String(opts.session || '').trim() : detectCallerSession(opts);
+  const actor = opts.actor || session || effectiveLease;
 
   if (rawName !== 'new' && leases[effectiveLease]) {
     const existingId = leases[effectiveLease].targetId;
@@ -108,12 +163,19 @@ export async function acquireTabLease(browser, leaseName, opts = {}) {
       leases[effectiveLease] = {
         ...leases[effectiveLease],
         actor,
+        session: session || leases[effectiveLease].session || '',
         url: target.url || leases[effectiveLease].url || url,
         title: target.title || leases[effectiveLease].title || '',
         updatedAt: Date.now(),
       };
       writeLeases(leases, stateDir);
-      return { created: false, lease: effectiveLease, targetId: target.id, target };
+      return {
+        created: false,
+        lease: effectiveLease,
+        targetId: target.id,
+        session: leases[effectiveLease].session,
+        target,
+      };
     }
   }
 
@@ -124,12 +186,19 @@ export async function acquireTabLease(browser, leaseName, opts = {}) {
       lease: effectiveLease,
       targetId: directTarget.id,
       actor,
+      session,
       url: directTarget.url || url,
       title: directTarget.title || '',
       updatedAt: Date.now(),
     };
     writeLeases(leases, stateDir);
-    return { created: false, lease: effectiveLease, targetId: directTarget.id, target: directTarget };
+    return {
+      created: false,
+      lease: effectiveLease,
+      targetId: directTarget.id,
+      session,
+      target: directTarget,
+    };
   }
 
   if (!createIfMissing) {
@@ -144,12 +213,13 @@ export async function acquireTabLease(browser, leaseName, opts = {}) {
     lease: effectiveLease,
     targetId: createdTab.id,
     actor,
+    session,
     url: createdTab.url || url,
     title: createdTab.title || '',
     updatedAt: Date.now(),
   };
   writeLeases(leases, stateDir);
-  return { created: true, lease: effectiveLease, targetId: createdTab.id, target: createdTab };
+  return { created: true, lease: effectiveLease, targetId: createdTab.id, session, target: createdTab };
 }
 
 /**
@@ -194,7 +264,8 @@ export function emitHudEvent(event, stateDir) {
     ts: Date.now(),
     targetId: event.targetId || '',
     lease: event.lease || '',
-    actor: event.actor || event.lease || 'agent',
+    actor: event.actor || event.session || event.lease || 'agent',
+    session: event.session || '',
     action: event.action || 'act',
     label: String(event.label || '').slice(0, 120),
     x: typeof event.x === 'number' ? Math.round(event.x) : null,

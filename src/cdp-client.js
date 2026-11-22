@@ -13,6 +13,7 @@ export class AimBrowser {
       stealFocus: true,
       lease: null,
       actor: null,
+      session: null,
       onHudEvent: null,
       ...options,
     };
@@ -228,7 +229,8 @@ export class AimBrowser {
       this.options.onHudEvent({
         targetId: this.targetId || '',
         lease: this.options.lease || '',
-        actor: this.options.actor || this.options.lease || 'agent',
+        actor: this.options.actor || this.options.session || this.options.lease || 'agent',
+        session: this.options.session || '',
         action,
         label,
         x,

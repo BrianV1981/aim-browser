@@ -20,6 +20,7 @@ export function checkDaemon() {
 export { checkDaemonAsync, startDaemonAsync, stopDaemonAsync };
 export {
   acquireTabLease,
+  detectCallerSession,
   emitHudEvent,
   readHudEvent,
   readLeases,

@@ -11,6 +11,7 @@ import {
   checkDaemonAsync,
   checkElementOcclusion,
   checkLayoutHealth,
+  detectCallerSession,
   emitHudEvent,
   loadSiteMap,
   readLeases,
@@ -45,15 +46,19 @@ async function main() {
 
   let requestedLease = null;
   let requestedActor = process.env.AIM_BROWSER_ACTOR || '';
+  let requestedSession = '';
   for (let k = 0; k < args.length; k++) {
     if (args[k] === '--tab' && args[k + 1]) requestedLease = args[k + 1];
     if (args[k] === '--actor' && args[k + 1]) requestedActor = args[k + 1];
+    if (args[k] === '--session' && args[k + 1]) requestedSession = args[k + 1];
   }
+  const resolvedSession = detectCallerSession({ session: requestedSession });
 
   const browser = new AimBrowser({
     stealFocus: !requestedLease,
     lease: requestedLease,
-    actor: requestedActor || requestedLease || 'operator-cli',
+    actor: requestedActor || resolvedSession || requestedLease || 'operator-cli',
+    session: resolvedSession,
     onHudEvent: (ev) => emitHudEvent(ev),
   });
   let state = await readState();
@@ -71,11 +76,13 @@ async function main() {
     if (requestedLease) {
       const leased = await acquireTabLease(browser, requestedLease, {
         url: initialUrl,
-        actor: requestedActor || requestedLease,
+        actor: requestedActor || resolvedSession || requestedLease,
+        session: resolvedSession,
       });
       activeLeaseTargetId = leased.targetId;
       browser.options.lease = leased.lease;
-      browser.options.actor = requestedActor || leased.lease;
+      browser.options.actor = requestedActor || resolvedSession || leased.lease;
+      browser.options.session = leased.session || resolvedSession;
       await browser.connect(leased.targetId);
       connected = true;
       if (!watchMode) {
@@ -113,8 +120,8 @@ async function main() {
     while (i < args.length) {
       const arg = args[i];
 
-      if (arg === '--tab' || arg === '--actor') {
-        i++; // Pre-parsed for targetId lease isolation & HUD actor attribution
+      if (arg === '--tab' || arg === '--actor' || arg === '--session') {
+        i++; // Pre-parsed for targetId lease isolation & HUD actor/session attribution
       }
       else if (arg === '--leases') {
         const tabs = await browser.getTargets().catch(() => []);
@@ -212,7 +219,7 @@ async function main() {
           await browser.send('Page.enable');
           await browser.send('Page.navigate', { url });
           await browser.waitReady(45000).catch(() => {});
-          emitHudEvent({ targetId: browser.targetId, lease: browser.options.lease, actor: browser.options.actor, action: 'navigate', label: url });
+          emitHudEvent({ targetId: browser.targetId, lease: browser.options.lease, actor: browser.options.actor, session: browser.options.session, action: 'navigate', label: url });
           await keepOffDesk();
           console.log(`[Success] Opened (${browser.options.lease}) ${url}`);
         } else {
@@ -243,7 +250,7 @@ async function main() {
         await ensureConnection(url);
         await browser.send('Page.enable');
         await browser.send('Page.navigate', { url });
-        emitHudEvent({ targetId: browser.targetId, lease: browser.options.lease, actor: browser.options.actor, action: 'navigate', label: url });
+        emitHudEvent({ targetId: browser.targetId, lease: browser.options.lease, actor: browser.options.actor, session: browser.options.session, action: 'navigate', label: url });
         await browser.waitReady(45000).catch(() => {});
         await keepOffDesk();
         console.log('[Success] Navigation complete.');

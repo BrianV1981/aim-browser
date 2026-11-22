@@ -4,6 +4,7 @@ import path from 'node:path';
 import { jest } from '@jest/globals';
 import {
   acquireTabLease,
+  detectCallerSession,
   emitHudEvent,
   readHudEvent,
   readLeases,
@@ -105,5 +106,42 @@ describe('Multi-Tab targetId Leasing & HUD Overlay Events (aim-browser#11)', () 
     expect(ev1.y).toBe(189);
     expect(ev2.seq).toBe(2);
     expect(readHudEvent(tmpDir)).toEqual(ev2);
+  });
+
+  it('auto-detects caller tmux session or git repo and persists session in leases and HUD (#13)', async () => {
+    expect(
+      detectCallerSession({ env: { AIM_BROWSER_SESSION: 'aim-connect' }, cwd: tmpDir })
+    ).toBe('aim-connect');
+
+    const mockExec = jest.fn(() => 'aim-alpha\n');
+    expect(
+      detectCallerSession({ env: { TMUX_PANE: '%4' }, execFn: mockExec, cwd: tmpDir })
+    ).toBe('aim-alpha');
+    expect(mockExec).toHaveBeenCalledWith(
+      'tmux',
+      ['display-message', '-p', '-t', '%4', '#S'],
+      expect.any(Object)
+    );
+
+    const fakeRepo = path.join(tmpDir, 'aim-sample-repo');
+    const fakeWorktree = path.join(fakeRepo, 'workspace', 'issue-99', 'backend');
+    fs.mkdirSync(path.join(fakeRepo, '.git'), { recursive: true });
+    fs.mkdirSync(fakeWorktree, { recursive: true });
+    expect(detectCallerSession({ env: {}, cwd: fakeWorktree })).toBe('aim-sample-repo');
+
+    const leased = await acquireTabLease(mockBrowser, 'market-brief', {
+      url: 'https://finance.yahoo.com',
+      session: 'aim-connect',
+      stateDir: tmpDir,
+    });
+    expect(leased.session).toBe('aim-connect');
+    expect(readLeases(tmpDir)['market-brief'].session).toBe('aim-connect');
+
+    const hud = emitHudEvent(
+      { targetId: leased.targetId, lease: 'market-brief', session: 'aim-connect', action: 'click', label: 'Ticker', x: 100, y: 80 },
+      tmpDir
+    );
+    expect(hud.session).toBe('aim-connect');
+    expect(hud.actor).toBe('aim-connect');
   });
 });
