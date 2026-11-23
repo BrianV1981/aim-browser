@@ -20,12 +20,18 @@ export function checkDaemon() {
 export { buildDaemonLaunchArgs, checkDaemonAsync, startDaemonAsync, stopDaemonAsync };
 export {
   acquireTabLease,
+  appendTabTelemetry,
+  clearHumanHandoff,
+  clearTabTelemetry,
   detectCallerSession,
   emitHudEvent,
   readHudEvent,
   readLeases,
+  readTabTelemetry,
   releaseTabLease,
+  requestHumanHandoff,
   resolveStateDir,
+  resolveTelemetryPath,
   syncLeasesWithTargets,
   withLeasesLock,
   withLeasesLockSync,

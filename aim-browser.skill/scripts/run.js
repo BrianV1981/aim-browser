@@ -11,12 +11,14 @@ import {
   checkDaemonAsync,
   checkElementOcclusion,
   checkLayoutHealth,
+  clearHumanHandoff,
   detectCallerSession,
   emitHudEvent,
   loadSiteMap,
   readLeases,
   recordLandmark,
   releaseTabLease,
+  requestHumanHandoff,
   startDaemonAsync,
   stopDaemonAsync,
   syncLeasesWithTargets,
@@ -47,6 +49,10 @@ async function main() {
   let requestedLease = null;
   let requestedActor = process.env.AIM_BROWSER_ACTOR || '';
   let requestedSession = '';
+  const requestedEphemeral = args.includes('--ephemeral');
+  const jsonMode = args.includes('--json');
+  const logInfo = (...msg) => (jsonMode ? console.error(...msg) : console.log(...msg));
+
   for (let k = 0; k < args.length; k++) {
     if (args[k] === '--tab' && args[k + 1]) requestedLease = args[k + 1];
     if (args[k] === '--actor' && args[k + 1]) requestedActor = args[k + 1];
@@ -60,6 +66,7 @@ async function main() {
     actor: requestedActor || resolvedSession || requestedLease || 'operator-cli',
     session: resolvedSession,
     autoConfigureDownloads: Boolean(requestedLease),
+    enableTelemetry: Boolean(requestedLease || args.includes('--snapshot')),
     onHudEvent: (ev) => emitHudEvent(ev),
   });
   let state = await readState();
@@ -79,6 +86,7 @@ async function main() {
         url: initialUrl,
         actor: requestedActor || resolvedSession || requestedLease,
         session: resolvedSession,
+        ephemeral: requestedEphemeral,
       });
       activeLeaseTargetId = leased.targetId;
       browser.options.lease = leased.lease;
@@ -123,6 +131,53 @@ async function main() {
 
       if (arg === '--tab' || arg === '--actor' || arg === '--session') {
         i++; // Pre-parsed for targetId lease isolation & HUD actor/session attribution
+      }
+      else if (arg === '--ephemeral' || arg === '--json') {
+        // Pre-parsed modifier flags
+      }
+      else if (arg === '--request-human') {
+        const reason = args[++i] || 'Human login or 2FA required';
+        if (!requestedLease) {
+          throw new Error('--request-human requires --tab <lease>');
+        }
+        await ensureConnection();
+        const updated = requestHumanHandoff(browser.options.lease, reason);
+        logInfo(`[Waiting] Lease "${updated.lease}" requested human handoff: ${updated.waitingForHuman.reason}`);
+      }
+      else if (arg === '--clear-human') {
+        if (!requestedLease) {
+          throw new Error('--clear-human requires --tab <lease>');
+        }
+        clearHumanHandoff(requestedLease);
+        logInfo(`[Success] Cleared waitingForHuman on lease "${requestedLease}".`);
+      }
+      else if (arg === '--accept-dialog') {
+        let promptText;
+        if (args[i + 1] && !args[i + 1].startsWith('--')) {
+          promptText = args[++i];
+        }
+        await ensureConnection();
+        await browser.handleDialog({ accept: true, promptText });
+        logInfo('[Success] Accepted JavaScript dialog.');
+      }
+      else if (arg === '--dismiss-dialog') {
+        await ensureConnection();
+        await browser.handleDialog({ accept: false });
+        logInfo('[Success] Dismissed JavaScript dialog.');
+      }
+      else if (arg === '--snapshot') {
+        await ensureConnection();
+        const snap = await browser.getSnapshot();
+        if (jsonMode) {
+          console.log(JSON.stringify(snap, null, 2));
+        } else {
+          console.log(`URL: ${snap.url}\nTitle: ${snap.title}\nTarget: ${snap.targetId}${snap.lease ? ` (lease=${snap.lease}${snap.ephemeral ? ', ephemeral' : ''})` : ''}`);
+          if (snap.waitingForHuman) console.log(`WaitingForHuman: ${snap.waitingForHuman.reason}`);
+          if (snap.activeDialog) console.log(`ActiveDialog [${snap.activeDialog.type}]: ${snap.activeDialog.message}`);
+          if (snap.consoleErrors.length) console.log(`ConsoleErrors (${snap.consoleErrors.length}): ${snap.consoleErrors.map((e) => e.text).join(' | ')}`);
+          if (snap.failedRequests.length) console.log(`FailedRequests (${snap.failedRequests.length}): ${snap.failedRequests.map((r) => `${r.method} ${r.status || r.errorText} ${r.url}`).join(' | ')}`);
+          snap.elements.forEach((e) => console.log(`[${e.index}] ${e.tag}${e.typeable ? ' (typeable)' : ''} @(${e.x},${e.y}) ${e.text}`));
+        }
       }
       else if (arg === '--leases') {
         const tabs = await browser.getTargets().catch(() => []);

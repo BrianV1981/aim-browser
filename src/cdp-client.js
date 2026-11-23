@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import WebSocket from 'ws';
+import { checkLayoutHealth } from './site-maps.js';
+import { appendTabTelemetry, readLeases, readTabTelemetry } from './tab-leases.js';
 
 export function resolveDefaultDownloadDir(customDir) {
   const raw = String(customDir || process.env.AIM_BROWSER_DOWNLOAD_DIR || '').trim();
@@ -24,6 +26,8 @@ export class AimBrowser {
       session: null,
       downloadDir: null,
       autoConfigureDownloads: false,
+      enableTelemetry: false,
+      stateDir: null,
       onHudEvent: null,
       ...options,
     };
@@ -36,6 +40,8 @@ export class AimBrowser {
     
     this._executionContexts = new Map();
     this._activeContextId = null;
+    this._networkRequests = new Map();
+    this._telemetryListenersInstalled = false;
   }
 
   async _httpJson(path, init) {
@@ -76,6 +82,181 @@ export class AimBrowser {
     return await this._httpText(`/json/close/${id}`);
   }
 
+  async _withBrowserSession(fn) {
+    const temp = new AimBrowser({
+      ...this.options,
+      autoConfigureDownloads: false,
+      enableTelemetry: false,
+    });
+    await temp.connect();
+    try {
+      return await fn(temp);
+    } finally {
+      await temp.close().catch(() => {});
+    }
+  }
+
+  async openEphemeralTab(url = 'about:blank') {
+    return await this._withBrowserSession(async (bSession) => {
+      const ctxRes = await bSession.send('Target.createBrowserContext', { disposeOnDetach: false }, 10000);
+      const browserContextId = ctxRes?.browserContextId;
+      if (!browserContextId) throw new Error('Failed to create ephemeral browserContextId');
+      const targetRes = await bSession.send('Target.createTarget', { url, browserContextId }, 10000);
+      const targetId = targetRes?.targetId;
+      if (!targetId) throw new Error('Failed to create target in ephemeral browserContext');
+      return { id: targetId, url, title: '', browserContextId, ephemeral: true };
+    });
+  }
+
+  async disposeEphemeralContext(browserContextId) {
+    if (!browserContextId) return false;
+    return await this._withBrowserSession(async (bSession) => {
+      await bSession.send('Target.disposeBrowserContext', { browserContextId }, 10000);
+      return true;
+    });
+  }
+
+  _installTelemetryListeners() {
+    if (this._telemetryListenersInstalled) return;
+    this._telemetryListenersInstalled = true;
+    const stateDir = this.options.stateDir || undefined;
+
+    this.on('Runtime.consoleAPICalled', (params) => {
+      if (!this.targetId || params?.type !== 'error') return;
+      const text = (params.args || [])
+        .map((a) => a?.value ?? a?.description ?? '')
+        .filter(Boolean)
+        .join(' ')
+        .slice(0, 300);
+      if (!text) return;
+      appendTabTelemetry(
+        this.targetId,
+        { consoleErrors: [{ ts: Date.now(), source: 'console.error', text }] },
+        stateDir
+      );
+    });
+
+    this.on('Runtime.exceptionThrown', (params) => {
+      if (!this.targetId) return;
+      const details = params?.exceptionDetails || {};
+      const text = String(
+        details.exception?.description || details.text || 'Uncaught exception'
+      ).slice(0, 300);
+      appendTabTelemetry(
+        this.targetId,
+        {
+          consoleErrors: [
+            {
+              ts: Date.now(),
+              source: 'exception',
+              text,
+              url: details.url || '',
+            },
+          ],
+        },
+        stateDir
+      );
+    });
+
+    this.on('Network.requestWillBeSent', (params) => {
+      if (params?.requestId && params?.request) {
+        this._networkRequests.set(params.requestId, {
+          method: params.request.method || 'GET',
+          url: params.request.url || '',
+        });
+        if (this._networkRequests.size > 200) {
+          const firstKey = this._networkRequests.keys().next().value;
+          this._networkRequests.delete(firstKey);
+        }
+      }
+    });
+
+    this.on('Network.responseReceived', (params) => {
+      if (!this.targetId) return;
+      const status = Number(params?.response?.status || 0);
+      if (status < 400) return;
+      const reqMeta = this._networkRequests.get(params?.requestId) || {};
+      appendTabTelemetry(
+        this.targetId,
+        {
+          failedRequests: [
+            {
+              ts: Date.now(),
+              method: reqMeta.method || 'GET',
+              url: String(params?.response?.url || reqMeta.url || '').slice(0, 240),
+              status,
+              statusText: String(params?.response?.statusText || '').slice(0, 80),
+            },
+          ],
+        },
+        stateDir
+      );
+    });
+
+    this.on('Network.loadingFailed', (params) => {
+      if (!this.targetId || params?.canceled) return;
+      const reqMeta = this._networkRequests.get(params?.requestId) || {};
+      appendTabTelemetry(
+        this.targetId,
+        {
+          failedRequests: [
+            {
+              ts: Date.now(),
+              method: reqMeta.method || 'GET',
+              url: String(reqMeta.url || '').slice(0, 240),
+              status: 0,
+              errorText: String(params?.errorText || 'Network loading failed').slice(0, 120),
+            },
+          ],
+        },
+        stateDir
+      );
+    });
+
+    this.on('Page.javascriptDialogOpening', (params) => {
+      if (!this.targetId) return;
+      appendTabTelemetry(
+        this.targetId,
+        {
+          activeDialog: {
+            type: params?.type || 'alert',
+            message: String(params?.message || '').slice(0, 240),
+            defaultPrompt: String(params?.defaultPrompt || '').slice(0, 120),
+            ts: Date.now(),
+          },
+        },
+        stateDir
+      );
+    });
+
+    this.on('Page.javascriptDialogClosed', () => {
+      if (!this.targetId) return;
+      appendTabTelemetry(this.targetId, { activeDialog: null }, stateDir);
+    });
+
+    this.on('Target.targetCreated', (params) => {
+      if (!this.targetId) return;
+      const info = params?.targetInfo;
+      if (info?.type === 'page' && info.openerId === this.targetId) {
+        appendTabTelemetry(
+          this.targetId,
+          {
+            childPopups: [
+              {
+                id: info.targetId,
+                url: info.url || '',
+                title: info.title || '',
+                openerId: info.openerId,
+                ts: Date.now(),
+              },
+            ],
+          },
+          stateDir
+        );
+      }
+    });
+  }
+
   async connect(targetId) {
     const { fetchImpl, WebSocketImpl } = this.options;
     if (!fetchImpl) throw new Error('No fetch implementation available');
@@ -97,11 +278,19 @@ export class AimBrowser {
 
     this.ws = new WebSocketImpl(wsUrl);
     this.ws.on('message', (data) => this._handleMessage(data));
+    if (this.options.enableTelemetry && targetId) {
+      this._installTelemetryListeners();
+    }
 
     return new Promise((resolve, reject) => {
       this.ws.on('open', async () => {
         this.connected = true;
         await this.send('Runtime.enable').catch(() => {});
+        if (this.options.enableTelemetry && targetId) {
+          await this.send('Page.enable', {}, 1500).catch(() => {});
+          await this.send('Network.enable', {}, 1500).catch(() => {});
+          await this.send('Target.setDiscoverTargets', { discover: true }, 1500).catch(() => {});
+        }
         if (this.options.autoConfigureDownloads) {
           const dlDir = resolveDefaultDownloadDir(this.options.downloadDir);
           try {
@@ -400,6 +589,56 @@ export class AimBrowser {
         };
       });
     })()`);
+  }
+
+  async handleDialog({ accept = true, promptText } = {}) {
+    await this.send('Page.enable', {}, 3000).catch(() => {});
+    const params = { accept: Boolean(accept) };
+    if (promptText !== undefined) params.promptText = String(promptText);
+    await this.send('Page.handleJavaScriptDialog', params, 5000);
+    if (this.targetId) {
+      appendTabTelemetry(this.targetId, { activeDialog: null }, this.options.stateDir || undefined);
+    }
+  }
+
+  async getSnapshot(opts = {}) {
+    const stateDir = opts.stateDir || this.options.stateDir || undefined;
+    const pageMeta = await this.evaluate(`(() => ({
+      url: location.href,
+      title: document.title || '',
+    }))()`).catch(() => ({ url: '', title: '' }));
+    const elements = await this.getElements().catch(() => []);
+    const layout = await checkLayoutHealth(this).catch(() => null);
+    const telemetry = readTabTelemetry(this.targetId, stateDir);
+    const allTabs = await this.getTargets().catch(() => []);
+    const liveIds = new Set(allTabs.map((t) => t.id));
+    const openerPopups = allTabs
+      .filter((t) => this.targetId && t.openerId === this.targetId)
+      .map((t) => ({ id: t.id, url: t.url || '', title: t.title || '', openerId: t.openerId }));
+    const mergedPopups = new Map();
+    for (const p of [...telemetry.childPopups.filter((x) => liveIds.has(x.id)), ...openerPopups]) {
+      if (p?.id) mergedPopups.set(p.id, p);
+    }
+
+    const leases = readLeases(stateDir);
+    const leaseKey = this.options.lease || '';
+    const leaseEntry = leaseKey && leases[leaseKey] ? leases[leaseKey] : null;
+
+    return {
+      url: pageMeta.url || '',
+      title: pageMeta.title || '',
+      targetId: this.targetId || '',
+      lease: leaseKey,
+      session: this.options.session || leaseEntry?.session || '',
+      ephemeral: Boolean(leaseEntry?.ephemeral || leaseEntry?.browserContextId),
+      waitingForHuman: leaseEntry?.waitingForHuman || null,
+      elements,
+      layout,
+      consoleErrors: telemetry.consoleErrors,
+      failedRequests: telemetry.failedRequests,
+      activeDialog: telemetry.activeDialog,
+      childPopups: Array.from(mergedPopups.values()),
+    };
   }
 
   async screenshot({ format = 'png', fullpage = false } = {}) {

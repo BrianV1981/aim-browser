@@ -23,8 +23,8 @@ Cross-platform Node.js Chromium CDP engine (`127.0.0.1:9222`) shared directly wi
    Pass `--tab <subagent-or-task-name>` (for example `--tab market-brief` or `--tab subagent-1`). Leased tabs run with `stealFocus: false` so parallel subagents **never** hijack the Operator's active tab or stomp each other, while emitting live cursor HUD events for your tab chip.
 2. **Never `--stop` a Shared Session:**
    `--start` is idempotent. When your subagent finishes a temporary tab, clean up ONLY your tab via `--release-tab <lease>` — **never** run `--stop` unless the Operator explicitly asks to shut down the entire browser daemon.
-3. **Human-in-the-Loop Login / 2FA Handoff (`🎮 Control ON`):**
-   Never bypass or solve CAPTCHAs/2FA yourself. Leave the login page open on your `--tab <lease>`, tell the Operator to click your `🤖 <lease>` tab in **`🌐 Browser`**, toggle **`🎮 Control ON`** (or **`🔑 Type / 2FA`**), complete sign-in, and reply *"continue"* so you resume on the authenticated cookie session.
+3. **Human-in-the-Loop Login / 2FA Handoff (`--request-human` & `🎮 Control ON`):**
+   Never bypass or solve CAPTCHAs/2FA yourself. Run `--tab <lease> --request-human "2FA required on portal"` to flag your leased tab in `leases.json` (triggering `aim-connect`'s `✋ Waiting` alert & takeover banner), let the Operator complete sign-in via **`🎮 Control ON`** or **`🔑 Type / 2FA`**, and clear with `--clear-human` once you resume on the authenticated cookie session. Use `--ephemeral` with `--tab <lease>` when scraping untrusted external URLs so subagents run in a zero-cookie sandbox without touching the Operator's authenticated profile.
 
 ---
 
@@ -35,13 +35,16 @@ Run directly from **any** working directory using `${AIM_BROWSER_ROOT:-$HOME/aim
 ```bash
 BROWSER_CLI="${AIM_BROWSER_ROOT:-$HOME/aim-browser}/aim-browser.skill/scripts/run.js"
 
-# 1. Start daemon (idempotent, stays minimized off Operator desktop) + open isolated tab + list elements:
-node "$BROWSER_CLI" --start --tab agent-work --open "https://finance.yahoo.com" --elements
+# 1. Start headless CDP daemon (--headless=new, idempotent) + open isolated tab + get single-turn JSON snapshot:
+node "$BROWSER_CLI" --start --tab agent-work --open "https://finance.yahoo.com" --snapshot --json
 
 # 2. Type & click inside your leased tab without stealing focus from other tabs:
-node "$BROWSER_CLI" --tab agent-work --type 0 "NVDA" --keypress enter --wait 1500 --content
+node "$BROWSER_CLI" --tab agent-work --type 0 "NVDA" --keypress enter --wait 1500 --snapshot --json
 
-# 3. Release & close only your leased tab when done:
+# 3. Untrusted web research in a cookie-isolated ephemeral browserContext:
+node "$BROWSER_CLI" --tab research-1 --ephemeral --open "https://example.org" --snapshot --json
+
+# 4. Release & close only your leased tab (and dispose ephemeral context if used) when done:
 node "$BROWSER_CLI" --release-tab agent-work
 ```
 
@@ -51,7 +54,7 @@ node "$BROWSER_CLI" --release-tab agent-work
 
 95% of navigation and layout checks require **zero screenshots or vision models**:
 
-1. **Fast DOM / Accessibility Readout (`< 5ms`):** Use `--elements` (numbered visible interactive elements with exact `(x, y)` coordinates), `--content`, or `--content-ax` instead of burning tokens on screenshots.
+1. **Single-Turn Agent Snapshot (`--snapshot --json`, `< 10ms`):** Returns `{ url, title, elements, layout, consoleErrors, failedRequests, activeDialog, childPopups }` in one call so you see interactive coordinates, JS exceptions, and `4xx/5xx` API failures without multiple shell turns. Use `--elements`, `--content`, or `--content-ax` for lightweight text-only reads.
 2. **Popup & Mobile Overflow Math:** Use `--check-occlusion <x> <y>` (`document.elementFromPoint`) to detect modal/cookie blockers and `--check-layout` to detect horizontal CSS overflow deterministically.
 3. **Self-Healing Website Maps (`~/.cache/aim-browser/maps/<domain>.json`):**
    On recurring portals or `localhost` apps, record multi-anchor landmarks once so repeat visits run in `< 5ms` and automatically self-heal if CSS classes change:
@@ -69,10 +72,10 @@ node "$BROWSER_CLI" --release-tab agent-work
 
 ## 4. CLI Flag Reference (Executed Left → Right)
 
-- **Lifecycle:** `--start` · `--start-minimized` · `--start-visible` · `--show` · `--minimize` · `--maximize` · `--check` · `--stop`
-- **Multi-Tab & Subagent Leases:** `--tab <lease|new>` · `--actor <name>` · `--leases` · `--release-tab <lease>` · `--list` / `--tabs` · `--open <url>` · `--use <index>` · `--close [<index>]`
+- **Lifecycle:** `--start` (`--headless=new` default) · `--start-minimized` · `--start-visible` · `--show` · `--minimize` · `--maximize` · `--check` · `--stop`
+- **Multi-Tab, Handoff & Ephemeral Leases:** `--tab <lease|new>` · `--ephemeral` · `--actor <name>` · `--session <name>` · `--request-human "<reason>"` · `--clear-human` · `--leases` · `--release-tab <lease>` · `--list` / `--tabs` · `--open <url>` · `--use <index>` · `--close [<index>]`
 - **Navigate & Wait:** `--url <url>` · `--wait-ready` · `--wait-selector <css>` · `--wait <ms>` · `--scroll-to-bottom`
-- **Discover & Layout Math:** `--elements` · `--content` · `--content-ax` · `--html` · `--check-occlusion <x> <y>` · `--check-layout` · `--screenshot <path>` (`--fullpage`)
+- **Discover, Telemetry & Layout Math:** `--snapshot` (`--json`) · `--elements` · `--content` · `--content-ax` · `--html` · `--check-occlusion <x> <y>` · `--check-layout` · `--accept-dialog [<text>]` · `--dismiss-dialog` · `--screenshot <path>` (`--fullpage`)
 - **Self-Healing Site Maps:** `--map-record <key> <selector|index>` · `--map-click <key>` · `--map-type <key> <text>` · `--map-show [<domain>]`
 - **Interact:** `--click <css|index>` · `--tap <index>` · `--tapxy <x> <y>` · `--taptestid <id>` · `--type <index> <text>` · `--textbox <text>` · `--keytype <text>` · `--keypress <enter|tab|backspace|escape>` · `--keycombo ctrl+enter`
 - **Advanced:** `--eval "<js>"` · `--frame <id|main>` · `--block-media` · `--spy <regex>` · `--dlpath <dir>` · `--upload <css> <file>` · `--resize <w> <h>`

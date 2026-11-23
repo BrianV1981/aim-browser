@@ -68,6 +68,68 @@ export function resolveStateDir(customDir) {
 
 const LEASE_LOCK_STALE_MS = 10000;
 const HUD_BY_TARGET_TTL_MS = 60000;
+const MAX_TELEMETRY_ITEMS = 25;
+
+function sanitizeTargetIdForFile(targetId) {
+  return String(targetId || 'unknown').replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 128) || 'unknown';
+}
+
+export function resolveTelemetryPath(targetId, stateDir) {
+  const dir = path.join(resolveStateDir(stateDir), 'telemetry');
+  fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, `${sanitizeTargetIdForFile(targetId)}.json`);
+}
+
+export function readTabTelemetry(targetId, stateDir) {
+  if (!targetId) {
+    return { consoleErrors: [], failedRequests: [], activeDialog: null, childPopups: [], updatedAt: 0 };
+  }
+  const file = resolveTelemetryPath(targetId, stateDir);
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return {
+      consoleErrors: Array.isArray(parsed?.consoleErrors) ? parsed.consoleErrors : [],
+      failedRequests: Array.isArray(parsed?.failedRequests) ? parsed.failedRequests : [],
+      activeDialog: parsed?.activeDialog && typeof parsed.activeDialog === 'object' ? parsed.activeDialog : null,
+      childPopups: Array.isArray(parsed?.childPopups) ? parsed.childPopups : [],
+      updatedAt: Number(parsed?.updatedAt || 0),
+    };
+  } catch {
+    return { consoleErrors: [], failedRequests: [], activeDialog: null, childPopups: [], updatedAt: 0 };
+  }
+}
+
+export function appendTabTelemetry(targetId, delta = {}, stateDir) {
+  if (!targetId) return null;
+  return withLeasesLockSync(stateDir, () => {
+    const current = readTabTelemetry(targetId, stateDir);
+    const consoleErrors = [...current.consoleErrors, ...(delta.consoleErrors || [])].slice(-MAX_TELEMETRY_ITEMS);
+    const failedRequests = [...current.failedRequests, ...(delta.failedRequests || [])].slice(-MAX_TELEMETRY_ITEMS);
+    const existingPopups = new Map(current.childPopups.map((p) => [p.id, p]));
+    for (const pop of delta.childPopups || []) {
+      if (pop?.id) existingPopups.set(pop.id, pop);
+    }
+    const childPopups = Array.from(existingPopups.values()).slice(-MAX_TELEMETRY_ITEMS);
+    const activeDialog = delta.activeDialog !== undefined ? delta.activeDialog : current.activeDialog;
+    const next = {
+      targetId,
+      consoleErrors,
+      failedRequests,
+      activeDialog,
+      childPopups,
+      updatedAt: Date.now(),
+    };
+    writeJsonAtomic(resolveTelemetryPath(targetId, stateDir), next);
+    return next;
+  });
+}
+
+export function clearTabTelemetry(targetId, stateDir) {
+  if (!targetId) return;
+  try {
+    fs.unlinkSync(resolveTelemetryPath(targetId, stateDir));
+  } catch {}
+}
 
 function isPidAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
@@ -319,7 +381,11 @@ export async function acquireTabLease(browser, leaseName, opts = {}) {
       throw new Error(`No active tab lease found for "${effectiveLease}"`);
     }
 
-    const createdTab = await browser.openTab(url);
+    const useEphemeral = opts.ephemeral === true;
+    const createdTab =
+      useEphemeral && typeof browser.openEphemeralTab === 'function'
+        ? await browser.openEphemeralTab(url)
+        : await browser.openTab(url);
     if (!createdTab?.id) {
       throw new Error(`Failed to open new CDP tab for lease "${effectiveLease}"`);
     }
@@ -331,15 +397,94 @@ export async function acquireTabLease(browser, leaseName, opts = {}) {
       session,
       url: createdTab.url || url,
       title: createdTab.title || '',
+      ephemeral: Boolean(useEphemeral || createdTab.ephemeral),
+      browserContextId: createdTab.browserContextId || '',
+      waitingForHuman: null,
       updatedAt: Date.now(),
     };
     writeLeases(freshLeases, stateDir);
-    return { created: true, lease: effectiveLease, targetId: createdTab.id, session, target: createdTab };
+    return {
+      created: true,
+      lease: effectiveLease,
+      targetId: createdTab.id,
+      session,
+      ephemeral: freshLeases[effectiveLease].ephemeral,
+      browserContextId: freshLeases[effectiveLease].browserContextId,
+      target: createdTab,
+    };
   });
 }
 
 /**
- * Release a named tab lease and optionally close its underlying CDP tab.
+ * Mark a named lease as waiting for human Operator intervention (2FA / login / CAPTCHA) for aim-connect#275.
+ * @param {string} leaseName
+ * @param {string} reason
+ * @param {{ stateDir?: string, emitHud?: boolean }} [opts]
+ */
+export function requestHumanHandoff(leaseName, reason, opts = {}) {
+  const cleanLease = String(leaseName || '').trim();
+  if (!cleanLease) throw new Error('leaseName is required for requestHumanHandoff');
+  const cleanReason = String(reason || 'Human login or 2FA required').trim().slice(0, 240);
+  const stateDir = resolveStateDir(opts.stateDir);
+
+  const updatedEntry = withLeasesLockSync(stateDir, () => {
+    const leases = readLeases(stateDir);
+    if (!leases[cleanLease]) {
+      throw new Error(`No active tab lease found for "${cleanLease}"`);
+    }
+    leases[cleanLease] = {
+      ...leases[cleanLease],
+      waitingForHuman: {
+        reason: cleanReason,
+        requestedAt: Date.now(),
+      },
+      updatedAt: Date.now(),
+    };
+    writeLeases(leases, stateDir);
+    return leases[cleanLease];
+  });
+
+  if (opts.emitHud !== false) {
+    emitHudEvent(
+      {
+        targetId: updatedEntry.targetId,
+        lease: cleanLease,
+        actor: updatedEntry.actor,
+        session: updatedEntry.session,
+        action: 'waiting-human',
+        label: cleanReason,
+      },
+      stateDir
+    );
+  }
+  return updatedEntry;
+}
+
+/**
+ * Clear `waitingForHuman` on a named lease once Operator login/2FA handoff completes.
+ * @param {string} leaseName
+ * @param {{ stateDir?: string }} [opts]
+ */
+export function clearHumanHandoff(leaseName, opts = {}) {
+  const cleanLease = String(leaseName || '').trim();
+  if (!cleanLease) throw new Error('leaseName is required for clearHumanHandoff');
+  const stateDir = resolveStateDir(opts.stateDir);
+
+  return withLeasesLockSync(stateDir, () => {
+    const leases = readLeases(stateDir);
+    if (!leases[cleanLease]) return null;
+    leases[cleanLease] = {
+      ...leases[cleanLease],
+      waitingForHuman: null,
+      updatedAt: Date.now(),
+    };
+    writeLeases(leases, stateDir);
+    return leases[cleanLease];
+  });
+}
+
+/**
+ * Release a named tab lease and optionally close its underlying CDP tab (or dispose its ephemeral context).
  * @param {import('./cdp-client.js').AimBrowser} browser
  * @param {string} leaseName
  * @param {{ closeTab?: boolean, stateDir?: string }} [opts]
@@ -352,14 +497,25 @@ export async function releaseTabLease(browser, leaseName, opts = {}) {
     if (!entry) return { released: false, closed: false };
 
     let closed = false;
-    if (opts.closeTab && browser && entry.targetId) {
-      await browser.closeTab(entry.targetId).catch(() => {});
-      closed = true;
+    if (opts.closeTab && browser) {
+      if (entry.browserContextId && typeof browser.disposeEphemeralContext === 'function') {
+        const disposed = await browser.disposeEphemeralContext(entry.browserContextId).catch(() => false);
+        if (!disposed && entry.targetId) {
+          await browser.closeTab(entry.targetId).catch(() => {});
+        }
+        closed = true;
+      } else if (entry.targetId) {
+        await browser.closeTab(entry.targetId).catch(() => {});
+        closed = true;
+      }
+    }
+    if (entry.targetId) {
+      clearTabTelemetry(entry.targetId, stateDir);
     }
     const latest = readLeases(stateDir);
     delete latest[leaseName];
     writeLeases(latest, stateDir);
-    return { released: true, closed, targetId: entry.targetId };
+    return { released: true, closed, targetId: entry.targetId, browserContextId: entry.browserContextId || '' };
   });
 }
 
