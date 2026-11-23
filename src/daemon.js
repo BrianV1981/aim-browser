@@ -67,6 +67,47 @@ export async function checkDaemonAsync() {
   });
 }
 
+export function buildDaemonLaunchArgs(opts = {}) {
+  const port = opts.port || CDP_PORT;
+  const addr = opts.addr || CDP_ADDR;
+  const profileDir = opts.profileDir || CDP_PROFILE_DIR;
+  const platform = opts.platform || process.platform;
+  const env = opts.env || process.env;
+  const initialUrl = opts.url || 'about:blank';
+
+  const forceVisible =
+    opts.visible === true ||
+    opts.headless === false ||
+    opts.mode === 'headed' ||
+    env.AIM_BROWSER_START_MINIMIZED === '0' ||
+    env.AIM_BROWSER_HEADLESS === '0';
+  const useHeadless = !forceVisible;
+
+  let minimized = true;
+  if (opts.visible === true || opts.minimized === false || env.AIM_BROWSER_START_MINIMIZED === '0') {
+    minimized = false;
+  }
+
+  const args = [
+    '--disable-dev-shm-usage',
+    `--remote-debugging-address=${addr}`,
+    `--remote-debugging-port=${port}`,
+    `--user-data-dir=${profileDir}`,
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--window-size=1280,800',
+  ];
+
+  if (useHeadless) {
+    args.push('--headless=new');
+  } else if (minimized) {
+    args.push(platform === 'win32' ? '--window-state=minimized' : '--start-minimized');
+  }
+
+  args.push(initialUrl);
+  return { args, useHeadless, minimized };
+}
+
 export async function startDaemonAsync(opts = {}) {
   try {
     await checkDaemonAsync();
@@ -77,28 +118,11 @@ export async function startDaemonAsync(opts = {}) {
   }
 
   const bin = getBrowserBin();
-  
-  let minimized = true;
-  if (opts.visible === true) minimized = false;
-  else if (opts.minimized === false) minimized = false;
-  else if (opts.minimized === true) minimized = true;
-  else if (process.env.AIM_BROWSER_START_MINIMIZED === '0') minimized = false;
-  else if (process.env.AIM_BROWSER_START_MINIMIZED === '1') minimized = true;
+  const { args, useHeadless, minimized } = buildDaemonLaunchArgs(opts);
 
-  console.error(`[aim-browser] Starting ${minimized ? 'minimized' : 'visible'}...`);
-
-  const args = [
-    '--disable-dev-shm-usage',
-    `--remote-debugging-address=${CDP_ADDR}`,
-    `--remote-debugging-port=${CDP_PORT}`,
-    `--user-data-dir=${CDP_PROFILE_DIR}`,
-    '--no-first-run',
-    '--no-default-browser-check',
-    'about:blank'
-  ];
-  if (minimized) {
-    args.push(process.platform === 'win32' ? '--window-state=minimized' : '--start-minimized');
-  }
+  console.error(
+    `[aim-browser] Starting ${useHeadless ? 'headless (--headless=new)' : minimized ? 'headed (minimized)' : 'headed (visible)'}...`
+  );
 
   if (!fs.existsSync(CDP_PROFILE_DIR)) {
     fs.mkdirSync(CDP_PROFILE_DIR, { recursive: true });

@@ -1,5 +1,5 @@
-export { AimBrowser } from './cdp-client.js';
-import { checkDaemonAsync, startDaemonAsync, stopDaemonAsync } from './daemon.js';
+export { AimBrowser, resolveDefaultDownloadDir } from './cdp-client.js';
+import { buildDaemonLaunchArgs, checkDaemonAsync, startDaemonAsync, stopDaemonAsync } from './daemon.js';
 
 export function runDaemonScript(scriptName, extraEnv = {}) {
   throw new Error("runDaemonScript is deprecated. Use the async daemon functions.");
@@ -17,7 +17,7 @@ export function checkDaemon() {
   throw new Error("checkDaemon (sync) is deprecated. Use await checkDaemonAsync().");
 }
 
-export { checkDaemonAsync, startDaemonAsync, stopDaemonAsync };
+export { buildDaemonLaunchArgs, checkDaemonAsync, startDaemonAsync, stopDaemonAsync };
 export {
   acquireTabLease,
   detectCallerSession,
@@ -27,6 +27,8 @@ export {
   releaseTabLease,
   resolveStateDir,
   syncLeasesWithTargets,
+  withLeasesLock,
+  withLeasesLockSync,
 } from './tab-leases.js';
 export {
   actOnLandmark,

@@ -59,6 +59,7 @@ async function main() {
     lease: requestedLease,
     actor: requestedActor || resolvedSession || requestedLease || 'operator-cli',
     session: resolvedSession,
+    autoConfigureDownloads: Boolean(requestedLease),
     onHudEvent: (ev) => emitHudEvent(ev),
   });
   let state = await readState();
@@ -135,9 +136,13 @@ async function main() {
       }
       else if (arg === '--start' || arg === '--start-minimized' || arg === '--start-visible') {
         const visible = arg === '--start-visible';
-        const minimized = !visible;
-        console.log(`[Action] Starting headed browser daemon (${minimized ? 'minimized — stays off your desk' : 'VISIBLE watch mode'})...`);
-        await startDaemonAsync({ minimized, visible });
+        const headless = arg === '--start';
+        console.log(
+          `[Action] Starting browser daemon (${
+            headless ? 'headless --headless=new' : visible ? 'VISIBLE watch mode' : 'headed minimized'
+          })...`
+        );
+        await startDaemonAsync({ visible, headless, minimized: !visible });
         if (visible) {
           try {
             await browser.connect();
@@ -200,16 +205,6 @@ async function main() {
         console.log(`[Action] Auto-scrolling to bottom...`);
         await browser.autoScroll();
         console.log(`[Success] Reached bottom of page.`);
-      }
-      else if (arg === '--solve-px') {
-        await ensureConnection();
-        console.log(`[Action] Attempting to solve PerimeterX / DataDome captcha...`);
-        const solved = await browser.solvePerimeterX();
-        if (solved) {
-          console.log(`[Success] Captcha sequence dispatched. Proceeding.`);
-        } else {
-          console.log(`[Result] No captcha found on page.`);
-        }
       }
       else if (arg === '--open') {
         const url = args[++i];

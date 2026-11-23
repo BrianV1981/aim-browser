@@ -1,4 +1,12 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import WebSocket from 'ws';
+
+export function resolveDefaultDownloadDir(customDir) {
+  const raw = String(customDir || process.env.AIM_BROWSER_DOWNLOAD_DIR || '').trim();
+  return raw ? path.resolve(raw) : path.join(os.homedir(), 'Downloads', 'aim-browser');
+}
 
 export class AimBrowser {
   constructor(options = {}) {
@@ -14,6 +22,8 @@ export class AimBrowser {
       lease: null,
       actor: null,
       session: null,
+      downloadDir: null,
+      autoConfigureDownloads: false,
       onHudEvent: null,
       ...options,
     };
@@ -48,8 +58,22 @@ export class AimBrowser {
     }
   }
 
+  async _httpText(pathUrl, init) {
+    const url = `http://${this.options.host}:${this.options.port}${pathUrl}`;
+    const res = await this.options.fetchImpl(url, init);
+    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+    if (typeof res.text === 'function') {
+      return await res.text();
+    }
+    if (typeof res.json === 'function') {
+      const data = await res.json();
+      return typeof data === 'string' ? data : JSON.stringify(data);
+    }
+    return '';
+  }
+
   async closeTab(id) {
-    return await this._httpJson(`/json/close/${id}`);
+    return await this._httpText(`/json/close/${id}`);
   }
 
   async connect(targetId) {
@@ -78,6 +102,14 @@ export class AimBrowser {
       this.ws.on('open', async () => {
         this.connected = true;
         await this.send('Runtime.enable').catch(() => {});
+        if (this.options.autoConfigureDownloads) {
+          const dlDir = resolveDefaultDownloadDir(this.options.downloadDir);
+          try {
+            fs.mkdirSync(dlDir, { recursive: true });
+          } catch {}
+          await this.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: dlDir }, 1500).catch(() => {});
+          await this.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: dlDir }, 1500).catch(() => {});
+        }
         resolve();
       });
       this.ws.on('error', (err) => reject(err));
@@ -307,7 +339,7 @@ export class AimBrowser {
   }
 
   async textbox(text) {
-    await this.send('Page.bringToFront').catch(() => {});
+    await this._maybeBringToFront();
     const center = await this._getElementCenter(`(() => {
       const el = document.querySelector('div[data-testid="tweetTextarea_0"]') ||
                  document.querySelector('div[data-testid^="tweetTextarea_"]') ||
@@ -324,14 +356,14 @@ export class AimBrowser {
   }
 
   async keyType(text) {
-    await this.send('Page.bringToFront').catch(() => {});
+    await this._maybeBringToFront();
     for (const ch of text) {
       await this.send('Input.dispatchKeyEvent', { type: 'char', text: ch });
     }
   }
 
   async keyPress(keyInfo) {
-    await this.send('Page.bringToFront').catch(() => {});
+    await this._maybeBringToFront();
     await this.send('Input.dispatchKeyEvent', { type: 'keyDown', ...keyInfo });
     await this.send('Input.dispatchKeyEvent', { type: 'keyUp', ...keyInfo });
   }
@@ -371,7 +403,7 @@ export class AimBrowser {
   }
 
   async screenshot({ format = 'png', fullpage = false } = {}) {
-    await this.send('Page.bringToFront').catch(() => {});
+    await this._maybeBringToFront();
     await this.waitReady(45000).catch(() => {});
     await new Promise(r => setTimeout(r, 800));
 
@@ -400,13 +432,13 @@ export class AimBrowser {
   }
 
   async setDownloadPath(dir) {
-    await this.send('Page.bringToFront').catch(() => {});
+    await this._maybeBringToFront();
     await this.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: dir }).catch(() => null);
     await this.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: dir }).catch(() => null);
   }
 
   async uploadFile(selector, base64Data) {
-    await this.send('Page.bringToFront').catch(() => {});
+    await this._maybeBringToFront();
     const ok = await this.evaluate(`(() => {
       const css = ${JSON.stringify(selector)};
       const b64 = ${JSON.stringify(base64Data)};
@@ -427,7 +459,7 @@ export class AimBrowser {
   }
 
   async saveImage(outPath) {
-    await this.send('Page.bringToFront').catch(() => {});
+    await this._maybeBringToFront();
     return await this.evaluate(`(async () => {
       const pickImg = () => {
         const imgs = Array.from(document.querySelectorAll('img'));
@@ -566,7 +598,7 @@ export class AimBrowser {
     const holdMs = options.holdMs ?? 10000;
     const afterMs = options.afterMs ?? 8000;
 
-    await this.send('Page.bringToFront').catch(() => {});
+    await this._maybeBringToFront();
     const pxCoords = await this.evaluate(`(() => {
       const pxContainer = document.querySelector('#px-captcha');
       if (pxContainer) {
