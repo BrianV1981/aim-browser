@@ -281,7 +281,7 @@ Skills call this for you when needed. Prefer skill entrypoints over manual daemo
 
 ---
 
-## How to report results (aim-communicate / Operator)
+## How to report results (A-Mail / Operator)
 
 When another agent or the Operator needs proof:
 
@@ -448,7 +448,7 @@ Modular A.I.M. (Actual Intelligent Memory) repositories. **Flagship engine: [aim
 **DNA, comms & lore:**
 - **[aim-coagents](https://github.com/BrianV1981/aim-coagents)** — DNA bank for sovereign co-agent blueprints.
 - **[aim-knowledge](https://github.com/BrianV1981/aim-knowledge)** — Public Obsidian vault / deep-lore archive.
-- **[aim-chalkboard](https://github.com/BrianV1981/aim-chalkboard)** — Optional cross-host async git mailbox (PoC; default same-host comms = **aim-communicate** skill).
+- **[aim-mailbox](https://github.com/BrianV1981/aim-mailbox)** — A-Mail (`amail` / `aim-mail`) Maildir post office and cross-OS wake dispatcher; the sole inter-agent transport (legacy `aim-communicate` / `aim-chalkboard` retired).
 
 **Deprecated / not maintained:**
 - **[aim](https://github.com/BrianV1981/aim)** — Original **Gemini CLI** framework. Deprecated after loss of practical subscription access; **Great Migration → aim-agy**.
